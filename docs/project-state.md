@@ -3,8 +3,8 @@
 **Last updated:** 2026-09-08
 **Repository:** `/Users/dull/Documents/ChatGPT/autoapi`
 **Branch:** `master`
-**HEAD:** `5dd4f4c` (`docs: normalize documentation rules formatting`)
-**Status:** Architecture foundation committed; implementation has not started.
+**HEAD:** `b132b6f` (`docs: record connector architecture handoff state`)
+**Status:** Architecture foundation and implementation plan committed; implementation has not started.
 
 ## Objective
 
@@ -43,14 +43,12 @@ No live authorization URL, JWT, cookie value, serialized auth state, or runtime 
 - [x] Architecture/spec: `docs/superpowers/specs/2026-09-08-motor-api-connector-design.md` (commit `87977e7`)
 - [x] Documentation rules: `docs/documentation-rules.md` (commit `5dd4f4c`)
 - [x] Agent-agnostic handoff: `docs/project-state.md` (commit `5dd4f4c`)
-- [ ] Implementation plan: `docs/superpowers/plans/2026-09-08-motor-api-connector.md`
+- [x] Implementation plan: `docs/superpowers/plans/2026-09-08-motor-api-connector.md`
 
 ## Next actions
 
-1. Review and approve the architecture spec.
-2. Write the detailed TDD implementation plan and commit it.
-3. Scaffold configuration, HTTP adapter, session persistence, route registry, normalizer, asset proxy, OpenAPI, and tests in red-green cycles.
-4. Run unit/integration verification, then an explicitly opt-in live smoke test.
+1. Scaffold configuration, HTTP adapter, session persistence, route registry, normalizer, asset proxy, OpenAPI, and tests in red-green cycles.
+2. Run unit/integration verification, then an explicitly opt-in live smoke test.
 
 ## Known repository notes
 
