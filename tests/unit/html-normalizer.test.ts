@@ -1,0 +1,36 @@
+import { describe, expect, it } from "vitest";
+import { normalizeHtml, type HtmlNormalizationContext } from "../../src/content/html-normalizer.js";
+
+const context: HtmlNormalizationContext = {
+  publicBaseUrl: "https://connector.test",
+  contentSource: "GeneralMotors",
+  vehicleId: "100342221",
+  connectorAssetUrl: ({ id, source }) => `https://connector.test/v1/assets/motor/source/${source}/${id}`,
+};
+
+describe("MOTOR HTML normalizer", () => {
+  it("converts MOTOR image tags to ordinary images", () => {
+    const result = normalizeHtml("<div><mtr-image id='4481151' height='514' width='580' alt='Diagram'></mtr-image></div>", context);
+    expect(result.html).toContain('<img src="https://connector.test/v1/assets/motor/source/GeneralMotors/4481151"');
+    expect(result.html).toContain('alt="Diagram"');
+    expect(result.html).toContain('height="514"');
+  });
+
+  it("maps embedded link and emphasis tags without executing content", () => {
+    const result = normalizeHtml('<p><eplink linkfield="AN" linkkey="4481222">Open</eplink> <emph>bold-ish</emph></p>', context);
+    expect(result.html).toContain('<a href="https://connector.test/v1/api/source/GeneralMotors/vehicle/100342221/article/4481222">Open</a>');
+    expect(result.html).toContain("<em>bold-ish</em>");
+    expect(result.html).not.toContain("eplink");
+  });
+
+  it("maps unknown custom elements to normal span/div elements", () => {
+    expect(normalizeHtml("<mystery data-x='drop'><b>text</b></mystery>", context).html).toBe("<span><b>text</b></span>");
+  });
+
+  it("drops scripts, event handlers, and dangerous attributes", () => {
+    const result = normalizeHtml('<script>alert(1)</script><a href="data:text/html,x" onclick="evil()">x</a>', context);
+    expect(result.html).not.toContain("alert");
+    expect(result.html).not.toContain("onclick");
+    expect(result.html).not.toContain("data:text");
+  });
+});
