@@ -57,6 +57,10 @@ function parseCookie(line: string, nowSeconds: number): SerializedCookie | undef
 export class CookieJar {
   private constructor(private readonly cookies = new Map<string, SerializedCookie>()) {}
 
+  static empty(): CookieJar {
+    return new CookieJar();
+  }
+
   static fromSetCookie(headers: string | string[], nowSeconds: number): CookieJar {
     const jar = new CookieJar();
     jar.addSetCookie(headers, nowSeconds);
