@@ -3,7 +3,7 @@
 **Last updated:** 2026-09-08
 **Repository:** `/Users/dull/Documents/ChatGPT/autoapi`
 **Branch:** `codex/motor-api-connector`
-**HEAD:** `414ebd4` (`feat: expose the read-only MOTOR connector API`)
+**Last verified code HEAD:** `8d80754b575092b2e9b83d2b6906ba9eb3edee7a` (`fix: make package entrypoint runnable`)
 **Status:** Implementation and local verification are complete in the isolated worktree. No remote state was changed. Documentation and smoke tooling are included; the live smoke is configuration-blocked in this environment.
 
 ## Objective
