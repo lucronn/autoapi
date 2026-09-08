@@ -3,8 +3,8 @@
 **Last updated:** 2026-09-08
 **Repository:** `/Users/dull/Documents/ChatGPT/autoapi`
 **Branch:** `master`
-**HEAD:** no commits at initial state
-**Status:** Architecture foundation being established; implementation has not started.
+**HEAD:** `5dd4f4c` (`docs: normalize documentation rules formatting`)
+**Status:** Architecture foundation committed; implementation has not started.
 
 ## Objective
 
@@ -40,9 +40,9 @@ No live authorization URL, JWT, cookie value, serialized auth state, or runtime 
 
 ## Required artifacts before implementation
 
-- [x] Architecture/spec: `docs/superpowers/specs/2026-09-08-motor-api-connector-design.md`
-- [x] Documentation rules: `docs/documentation-rules.md`
-- [x] Agent-agnostic handoff: `docs/project-state.md`
+- [x] Architecture/spec: `docs/superpowers/specs/2026-09-08-motor-api-connector-design.md` (commit `87977e7`)
+- [x] Documentation rules: `docs/documentation-rules.md` (commit `5dd4f4c`)
+- [x] Agent-agnostic handoff: `docs/project-state.md` (commit `5dd4f4c`)
 - [ ] Implementation plan: `docs/superpowers/plans/2026-09-08-motor-api-connector.md`
 
 ## Next actions
