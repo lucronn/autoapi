@@ -58,7 +58,7 @@ export class HttpClient {
     };
   }
 
-  async request(input: HttpRequest): Promise<HttpResponse> {
+  async request(input: HttpRequest, options: { maxResponseBytes?: number } = {}): Promise<HttpResponse> {
     if (input.method !== "GET" && input.method !== "POST") throw new ConnectorError("invalid_request", "Only GET and POST are supported", 400);
     const url = new URL(input.url);
     if (url.protocol !== "https:") throw new ConnectorError("blocked_upstream_target", "Only HTTPS upstream targets are allowed", 400);
@@ -74,7 +74,7 @@ export class HttpClient {
       throw new ConnectorError("upstream_error", "Upstream request failed", 502, undefined, error);
     }
 
-    if (response.body.byteLength > this.options.maxResponseBytes) {
+    if (response.body.byteLength > (options.maxResponseBytes ?? this.options.maxResponseBytes)) {
       throw new ConnectorError("upstream_response_too_large", "Upstream response exceeded the configured limit", 502, response.status);
     }
     return response;

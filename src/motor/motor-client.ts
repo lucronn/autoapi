@@ -28,7 +28,7 @@ export class MotorApiClient {
     );
   }
 
-  async executeResponse(routeId: MotorRouteId, params: MotorRouteParams, session: AuthenticatedSession): Promise<HttpResponse> {
+  async executeResponse(routeId: MotorRouteId, params: MotorRouteParams, session: AuthenticatedSession, maxResponseBytes?: number): Promise<HttpResponse> {
     const request = this.buildRequest(routeId, params);
     return this.http.request({
       method: request.method,
@@ -37,7 +37,7 @@ export class MotorApiClient {
         accept: request.responseKind === "json" ? "application/json" : "text/plain, application/xml;q=0.9, */*;q=0.8",
         cookie: session.cookieJar.toHeader(Math.floor(Date.now() / 1000)),
       },
-    });
+    }, { maxResponseBytes });
   }
 
   async execute<T = unknown>(routeId: MotorRouteId, params: MotorRouteParams, session: AuthenticatedSession): Promise<UpstreamEnvelope<T>> {
