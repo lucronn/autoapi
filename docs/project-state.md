@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-09-08
 **Repository:** `/Users/dull/Documents/ChatGPT/autoapi`
-**Branch:** `master`
-**HEAD:** `b132b6f` (`docs: record connector architecture handoff state`)
-**Status:** Architecture foundation and implementation plan committed; implementation has not started.
+**Branch:** `codex/motor-api-connector`
+**HEAD:** `414ebd4` (`feat: expose the read-only MOTOR connector API`)
+**Status:** Implementation and local verification are complete in the isolated worktree. No remote state was changed.
 
 ## Objective
 
@@ -45,10 +45,33 @@ No live authorization URL, JWT, cookie value, serialized auth state, or runtime 
 - [x] Agent-agnostic handoff: `docs/project-state.md` (commit `5dd4f4c`)
 - [x] Implementation plan: `docs/superpowers/plans/2026-09-08-motor-api-connector.md`
 
+## Implemented slices
+
+- Direct HTTP EBSCO prompted-login adapter with allowlisted redirects and cookie capture.
+- AES-256-GCM encrypted server session file with atomic writes and single-flight refresh.
+- Explicit read-only MOTOR route registry and direct client for catalog, vehicle, article, labor, maintenance, parts, graphic, asset, XML, and user-settings resources.
+- Deterministic HTML normalization: `<mtr-image>` to `<img>`, `<eplink>` to connector article links, `<emph>` to `<em>`, safe attributes, and safe `src`/`href`/`srcset`/CSS URL rewriting.
+- HMAC-signed expiring asset references and an asset proxy with content-type/size/header controls.
+- Unauthenticated Fastify routes under `/v1/api/*`, `/v1/assets/*`, `/healthz`, `/readyz`, `/docs`, and `/openapi.json`.
+- Request-scoped `x-upstream-cookie` override supported without persistence; server-side session remains the default.
+- Opt-in redacted live smoke command in `scripts/live-smoke.ts`.
+
+## Local verification evidence
+
+Run from `/Users/dull/Documents/ChatGPT/autoapi/.worktrees/motor-api-connector`:
+
+- `npm test` — exit 0; 19 test files, 45 tests passed.
+- `npm run build` — exit 0; TypeScript emitted successfully.
+- `npm run lint` — exit 0; strict TypeScript check passed.
+- `git diff --check` — exit 0; no whitespace errors.
+
+The supplied makes envelope and article envelope are covered by sanitized fixtures and returned through the Fastify connector integration tests. The live connector boundary remains opt-in and depends on the operator's authorized runtime configuration; no live secret or session material is committed.
+
 ## Next actions
 
-1. Scaffold configuration, HTTP adapter, session persistence, route registry, normalizer, asset proxy, OpenAPI, and tests in red-green cycles.
-2. Run unit/integration verification, then an explicitly opt-in live smoke test.
+1. Copy `.env.example` into a runtime secret store and provide an authorized EBSCO/MOTOR entry URL, prompt value, and encryption key.
+2. Run `LIVE_SMOKE=1 npm run live-smoke` only when live verification is desired; record only its sanitized route/status/shape/timing output.
+3. Deploy behind the trusted-network boundary described in the README; do not expose the unauthenticated connector directly to the public Internet.
 
 ## Known repository notes
 
