@@ -4,7 +4,7 @@
 **Repository:** `/Users/dull/Documents/ChatGPT/autoapi`
 **Branch:** `codex/motor-api-connector`
 **HEAD:** `414ebd4` (`feat: expose the read-only MOTOR connector API`)
-**Status:** Implementation and local verification are complete in the isolated worktree. No remote state was changed.
+**Status:** Implementation and local verification are complete in the isolated worktree. No remote state was changed. Documentation and smoke tooling are included; the live smoke is configuration-blocked in this environment.
 
 ## Objective
 
@@ -64,8 +64,9 @@ Run from `/Users/dull/Documents/ChatGPT/autoapi/.worktrees/motor-api-connector`:
 - `npm run build` — exit 0; TypeScript emitted successfully.
 - `npm run lint` — exit 0; strict TypeScript check passed.
 - `git diff --check` — exit 0; no whitespace errors.
+- `LIVE_SMOKE=1 npm run live-smoke` — exit 1 as expected with sanitized `configuration_error`; no runtime credentials were available in this environment and no secret material was printed.
 
-The supplied makes envelope and article envelope are covered by sanitized fixtures and returned through the Fastify connector integration tests. The live connector boundary remains opt-in and depends on the operator's authorized runtime configuration; no live secret or session material is committed.
+The supplied makes envelope and article envelope are covered by sanitized fixtures and returned through the Fastify connector integration tests. The live connector boundary remains opt-in and depends on the operator's authorized runtime configuration; no live secret or session material is committed. The earlier direct HTTP investigation established the provider flow, but this checkout's live smoke was not allowed to invent or recover missing runtime configuration.
 
 ## Next actions
 

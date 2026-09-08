@@ -1,0 +1,162 @@
+# MOTOR Read-only Connector API
+
+This service is a small, direct connector to the same `/m1/api/*` service used by the Auto Repair Source/MOTOR frontend. It does not execute the frontend bundle, render the application, scrape browser content, or expose a general-purpose proxy. It authenticates the upstream service over HTTP, then forwards an explicit allowlist of read-only MOTOR resources.
+
+The connector API itself is unauthenticated by design. Deploy it only behind an authenticated, trusted network boundary such as a private service network, gateway, VPN, or service-to-service policy. Clients of the connector never receive the EBSCO prompt value, authorization code, provider cookies, or encrypted session key.
+
+## Quick start
+
+Requirements: Node.js 22 or newer.
+
+```bash
+npm install
+cp .env.example .env
+openssl rand -hex 32
+npm run build
+npm start
+```
+
+Populate `.env` from the authorized operator's secret store before starting. At minimum, set:
+
+- `MOTOR_ENTRY_URL`: the provider-generated EBSCO entry URL for the institution/profile.
+- `MOTOR_PROMPT_VALUE`: the authorized prompted-login value (for example, the institution's configured ZIP prompt).
+- `SESSION_ENCRYPTION_KEY`: a 32-byte key encoded as 64 hexadecimal characters.
+
+The entry URL and prompt are runtime secrets. Do not paste them into source, fixtures, issue trackers, logs, or this README. The connector does not bypass provider entitlement controls; the operator must supply authorized access.
+
+For development, `npm run dev` starts the TypeScript watcher. The default bind is `127.0.0.1:3000`; change `HOST`, `PORT`, and `PUBLIC_BASE_URL` as needed. `PUBLIC_BASE_URL` is used when normalized HTML is given to a frontend, so it should be the externally reachable connector origin.
+
+## Authentication and persistence
+
+The default request path is:
+
+1. Load the encrypted server session from `SESSION_FILE_PATH`.
+2. Validate it after process start when it has no explicit usable expiry.
+3. Re-authenticate only when the session is missing, explicitly near expiry, or MOTOR returns HTTP 401/403.
+4. Retry the idempotent GET once after a refresh.
+
+The session file is AES-256-GCM encrypted, written with restrictive directory/file permissions, and replaced atomically. Session cookies are never written in plaintext. Browser automation is not part of the default runtime because the direct prompted-login HTTP flow is lower latency and has fewer moving parts. A browser fallback is intentionally not enabled by this implementation.
+
+For a trusted caller that already has an authorized upstream session, send the request-scoped header:
+
+```http
+X-Upstream-Cookie: SessionIdentifier=...; AuthUserInfo=...
+```
+
+That override is used only for the current request, is never persisted, and should be treated as sensitive. The server-side session remains the default when the header is absent. A caller must not send both an override and expect it to update the server session.
+
+## Public API
+
+Every public connector route is `GET`. MOTOR response envelopes are retained as `{ header, body }`. Upstream non-2xx responses become a sanitized connector error with a request ID and upstream status; upstream headers, cookies, and bodies are not included in errors.
+
+Catalog and vehicle routes:
+
+| Connector route | Upstream resource |
+| --- | --- |
+| `GET /v1/api/years` | `/m1/api/years` |
+| `GET /v1/api/year/{year}/makes` | `/m1/api/year/{year}/makes` |
+| `GET /v1/api/year/{year}/make/{make}/models` | `/m1/api/year/{year}/make/{make}/models` |
+| `GET /v1/api/vin/{vin}/vehicle` | `/m1/api/vin/{vin}/vehicle` |
+| `GET /v1/api/source/{contentSource}/vehicles?vehicleIds=...` | `/m1/api/source/{contentSource}/vehicles` |
+| `GET /v1/api/source/{contentSource}/{vehicleId}/motorvehicles` | `/m1/api/source/{contentSource}/{vehicleId}/motorvehicles` |
+| `GET /v1/api/source/{contentSource}/{vehicleId}/name` | `/m1/api/source/{contentSource}/{vehicleId}/name` |
+
+Vehicle content routes:
+
+| Connector route | Allowed query parameters |
+| --- | --- |
+| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/articles/v2` | `bucketName`, `articleSubtype`, `searchTerm` |
+| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/article/{articleId}` | `bucketName`, `articleSubtype`, `searchTerm` |
+| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/article/{articleId}/title` | none |
+| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/labor/{articleId}` | none |
+| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/maintenanceSchedules/frequency` | none |
+| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/maintenanceSchedules/intervals` | none |
+| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/maintenanceSchedules/indicators` | none |
+| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/parts` | none |
+
+Resource routes:
+
+| Connector route | Behavior |
+| --- | --- |
+| `GET /v1/api/source/{contentSource}/graphic/{id}` | Read-only graphic bytes, with upstream content type |
+| `GET /v1/api/asset/{handleId}` | Read-only asset bytes, with upstream content type |
+| `GET /v1/api/source/{contentSource}/xml/{articleId}` | Read-only XML/text response |
+| `GET /v1/api/ui/usersettings` | Read-only user settings envelope |
+| `GET /v1/assets/motor/{signedReference}` | Signed, expiring asset proxy used by normalized HTML |
+
+`contentSource` is restricted to `MOTOR_ALLOWED_CONTENT_SOURCES` (default: `GeneralMotors,Motor,Toyota`). Path segments are encoded individually, so an article ID such as `4481222:17911387` is sent as one safe segment (`4481222%3A17911387`). Unknown query parameters are rejected rather than forwarded.
+
+## Raw and normalized responses
+
+For JSON routes, the default response preserves upstream metadata and normalizes only an object body that contains an HTML field. Catalog arrays and other JSON bodies are returned unchanged. Add `raw=true` to an HTML-bearing request to get the parsed upstream envelope without normalization:
+
+```text
+GET /v1/api/source/GeneralMotors/vehicle/100342221/article/4481222%3A17911387?bucketName=Component%20Location%20Diagrams&articleSubtype=&searchTerm=&raw=true
+```
+
+The normalized form keeps the original `header` and document metadata, replaces `body.html`, and adds a `connector` namespace containing `normalized`, `links`, and `resources`. Custom MOTOR tags are converted as follows:
+
+- `<mtr-image id="..." ...>` becomes an ordinary `<img>` whose `src` points to a signed connector asset URL.
+- `<eplink linkkey="...">` becomes a connector article `<a>` link.
+- `<emph>` becomes `<em>`.
+- Other unknown custom elements become safe `<span>`/`<div>` elements while their unsafe/provider-specific attributes are removed.
+
+The normalizer also handles embedded `src`, `href`, `srcset`, and CSS `url(...)` values. It never fetches resources while normalizing. Only recognized same-origin MOTOR asset paths are converted to signed connector references. Dangerous schemes, malformed URLs, event-handler attributes, scripts, forms, and active embed elements are removed. Signed asset references are opaque HMAC-SHA256 values with a short expiry and are accepted only for allowlisted MOTOR asset targets.
+
+Example with the supplied article shape:
+
+```json
+{
+  "header": { "status": "OK", "statusCode": 200 },
+  "body": {
+    "html": "<h2 class=\"document-header\">Bushing, Bearing, and Washer Locations</h2><img src=\"https://connector.example/v1/assets/motor/...\" alt=\"Bushing, Bearing, and Washer Locations\">",
+    "documentId": "4481222",
+    "releaseDate": "2016-04-13T13:29:42",
+    "publishedDate": "2020-07-01T00:00:00"
+  },
+  "connector": { "normalized": true, "links": [], "resources": [] }
+}
+```
+
+## OpenAPI and health
+
+- Swagger UI: [`/docs`](http://127.0.0.1:3000/docs)
+- OpenAPI JSON: [`/openapi.json`](http://127.0.0.1:3000/openapi.json)
+- Process health: `GET /healthz`
+- Readiness shape: `GET /readyz`
+
+The OpenAPI document describes the public GET-only surface. No connector authentication scheme is advertised because deployment authentication belongs at the trusted-network boundary. Health responses do not reveal upstream cookies or token state.
+
+## Configuration reference
+
+| Variable | Purpose |
+| --- | --- |
+| `HOST`, `PORT` | Local bind address and port |
+| `PUBLIC_BASE_URL` | Base URL embedded in normalized links/assets |
+| `MOTOR_ENTRY_URL` | Runtime EBSCO entry URL |
+| `MOTOR_PROMPT_VALUE` | Runtime prompted-login value |
+| `MOTOR_API_ORIGIN`, `MOTOR_LOGIN_ORIGIN` | HTTPS upstream origins |
+| `MOTOR_ALLOWED_CONTENT_SOURCES` | Comma-separated source allowlist |
+| `SESSION_FILE_PATH` | Encrypted server-session location |
+| `SESSION_ENCRYPTION_KEY` | 32-byte hex encryption/signing key |
+| `SESSION_REFRESH_SKEW_SECONDS` | Explicit expiry safety window |
+| `REQUEST_TIMEOUT_MS` | Per-upstream-request timeout |
+| `MAX_RESPONSE_BYTES`, `MAX_ASSET_BYTES` | Bounded upstream response sizes |
+| `MAX_CONCURRENT_UPSTREAM` | Deployment tuning limit reserved for concurrency control |
+
+## Verification
+
+```bash
+npm test
+npm run build
+npm run lint
+git diff --check
+```
+
+The live smoke is intentionally separate and opt-in:
+
+```bash
+LIVE_SMOKE=1 npm run live-smoke
+```
+
+It uses the configured authorized runtime session, checks years, 2024 makes, and the configured/example article target, and prints only sanitized route/status/timing/shape evidence. It does not create a session file in the repository. If runtime configuration is not present or the upstream rejects access, it exits nonzero with a sanitized error code.
