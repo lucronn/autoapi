@@ -56,6 +56,4 @@ Update `docs/project-state.md` at meaningful boundaries:
 - after each implementation slice;
 - after verification;
 - when blocked by upstream access, missing credentials, or a user decision.
-
 The state file must remain useful to an agent with no conversation history. Prefer concise facts, exact paths, commands, and next actions over narrative.
-
