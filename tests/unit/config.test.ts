@@ -8,8 +8,11 @@ const validEnv = {
 };
 
 describe("loadConfig", () => {
-  it("rejects missing upstream entry configuration", () => {
-    expect(() => loadConfig({})).toThrow(/MOTOR_ENTRY_URL/);
+  it("uses the configured institutional fallback entry and ZIP when overrides are omitted", () => {
+    const config = loadConfig({ SESSION_ENCRYPTION_KEY: "a".repeat(64) });
+
+    expect(config.upstream.entryUrl).toBe("https://search.ebscohost.com/login.aspx?authtype=ip,geo,cpid,uid&groupid=main&custid=ns145344&profile=autorepso");
+    expect(config.upstream.promptValue).toBe("20234");
   });
 
   it("loads a server session configuration without exposing secret values", () => {

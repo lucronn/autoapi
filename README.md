@@ -16,13 +16,13 @@ npm run build
 npm start
 ```
 
-Populate `.env` from the authorized operator's secret store before starting. At minimum, set:
+The connector includes the supplied institutional entry URL and prompted ZIP as fallback defaults. Set them explicitly in deployment configuration when possible, and override them if your institution or profile differs. The session encryption key remains required:
 
-- `MOTOR_ENTRY_URL`: the provider-generated EBSCO entry URL for the institution/profile.
-- `MOTOR_PROMPT_VALUE`: the authorized prompted-login value (for example, the institution's configured ZIP prompt).
+- `MOTOR_ENTRY_URL`: the EBSCO entry URL for the institution/profile; defaults to the supplied `ns145344`/`autorepso` profile.
+- `MOTOR_PROMPT_VALUE`: the authorized prompted-login value; defaults to the supplied ZIP `20234`.
 - `SESSION_ENCRYPTION_KEY`: a 32-byte key encoded as 64 hexadecimal characters.
 
-The entry URL and prompt are runtime secrets. Do not paste them into source, fixtures, issue trackers, logs, or this README. The connector does not bypass provider entitlement controls; the operator must supply authorized access.
+The prompt value is an access credential. Anyone with access to this public repository can see the fallback value, so rotate or override it before using this repository outside the supplied environment. The connector does not bypass provider entitlement controls; the operator must supply authorized access.
 
 For development, `npm run dev` starts the TypeScript watcher. The default bind is `127.0.0.1:3000`; change `HOST`, `PORT`, and `PUBLIC_BASE_URL` as needed. `PUBLIC_BASE_URL` is used when normalized HTML is given to a frontend, so it should be the externally reachable connector origin.
 

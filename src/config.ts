@@ -1,5 +1,8 @@
 import { Buffer } from "node:buffer";
 
+export const DEFAULT_MOTOR_ENTRY_URL = "https://search.ebscohost.com/login.aspx?authtype=ip,geo,cpid,uid&groupid=main&custid=ns145344&profile=autorepso";
+export const DEFAULT_MOTOR_PROMPT_VALUE = "20234";
+
 export type Config = {
   host: string;
   port: number;
@@ -28,6 +31,8 @@ export type Config = {
 const defaults = {
   host: "127.0.0.1",
   port: 3000,
+  entryUrl: DEFAULT_MOTOR_ENTRY_URL,
+  promptValue: DEFAULT_MOTOR_PROMPT_VALUE,
   apiOrigin: "https://sites.motor.com",
   loginOrigin: "https://login.ebsco.com",
   allowedContentSources: ["GeneralMotors", "Motor", "Toyota"],
@@ -40,8 +45,8 @@ const defaults = {
   maxConcurrentUpstream: 8,
 } as const;
 
-function required(env: NodeJS.ProcessEnv, key: string): string {
-  const value = env[key]?.trim();
+function required(env: NodeJS.ProcessEnv, key: string, fallback?: string): string {
+  const value = env[key]?.trim() || fallback;
   if (!value) throw new Error(`${key} is required`);
   return value;
 }
@@ -68,11 +73,11 @@ function optionalBaseUrl(value: string | undefined): string | undefined {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const entryUrl = required(env, "MOTOR_ENTRY_URL");
+  const entryUrl = required(env, "MOTOR_ENTRY_URL", defaults.entryUrl);
   const entry = new URL(entryUrl);
   if (entry.protocol !== "https:") throw new Error("MOTOR_ENTRY_URL must use HTTPS");
 
-  const promptValue = required(env, "MOTOR_PROMPT_VALUE");
+  const promptValue = required(env, "MOTOR_PROMPT_VALUE", defaults.promptValue);
   const keyHex = required(env, "SESSION_ENCRYPTION_KEY");
   if (!/^[a-f0-9]{64}$/i.test(keyHex)) throw new Error("SESSION_ENCRYPTION_KEY must be 32 bytes encoded as 64 hex characters");
 
