@@ -42,7 +42,7 @@ describe("EbscoHttpAuthAdapter", () => {
       response(200, loginPage, { "set-cookie": "reqId=synthetic-request; Path=/" }),
       response(200, authResponse, { "set-cookie": "AuthUserInfo=synthetic-user; Path=/" }),
       response(302, "", { location: "https://sites.motor.com/m1/vehicles" }),
-      response(200, "<html>vehicle app</html>"),
+      response(404, "<html>vehicle app moved</html>"),
       response(200, JSON.stringify({ header: { statusCode: 200 }, body: [1985, 2024] }), { "content-type": "application/json" }),
     ]);
     const adapter = new EbscoHttpAuthAdapter(config, fake.transport);

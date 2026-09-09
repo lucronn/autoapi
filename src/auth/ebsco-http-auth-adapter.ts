@@ -128,8 +128,10 @@ export class EbscoHttpAuthAdapter implements AuthAdapter {
 
     const callback = new URL(authorization.context.redirectUri);
     ensureAllowed(callback, this.config);
-    const callbackResponse = await this.followGet(callback.toString(), jar);
-    if (callbackResponse.status < 200 || callbackResponse.status >= 400) throw new ConnectorError("upstream_auth_failed", "Upstream callback failed", 502, callbackResponse.status);
+    // The callback chain can finish at a stale or moved MOTOR UI landing page.
+    // Authentication is established by the callback redirects and must be
+    // confirmed by the read-only API probe below, not by the UI page status.
+    await this.followGet(callback.toString(), jar);
 
     const session: AuthenticatedSession = { source: "server", cookieJar: jar, createdAt: nowSeconds() };
     const validation = await this.validate(session);
