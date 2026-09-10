@@ -61,4 +61,30 @@ describe("SessionManager", () => {
     await expect(results).resolves.toHaveLength(3);
     expect(adapter.authenticate).toHaveBeenCalledTimes(1);
   });
+
+  it("validates a persisted session once when concurrent requests start together", async () => {
+    let resolveValidation: ((result: { valid: true }) => void) | undefined;
+    const validation = new Promise<{ valid: true }>((resolve) => { resolveValidation = resolve; });
+    const adapter: AuthAdapter = {
+      authenticate: vi.fn(),
+      validate: vi.fn(() => validation),
+    };
+    const manager = new SessionManager(adapter, fakeStore(makeSession()), { refreshSkewSeconds: 300 });
+
+    const requests = Promise.all([manager.getSession(), manager.getSession(), manager.getSession()]);
+    resolveValidation?.({ valid: true });
+    await expect(requests).resolves.toHaveLength(3);
+    expect(adapter.validate).toHaveBeenCalledTimes(1);
+    expect(adapter.authenticate).not.toHaveBeenCalled();
+  });
+
+  it("does not stampede upstream authentication after a refresh failure", async () => {
+    const failure = new Error("upstream temporarily unavailable");
+    const adapter: AuthAdapter = { authenticate: vi.fn(async () => { throw failure; }), validate: vi.fn() };
+    const manager = new SessionManager(adapter, fakeStore(), { refreshSkewSeconds: 300, refreshFailureCooldownSeconds: 60 });
+
+    await expect(manager.getSession()).rejects.toBe(failure);
+    await expect(manager.getSession()).rejects.toBe(failure);
+    expect(adapter.authenticate).toHaveBeenCalledTimes(1);
+  });
 });

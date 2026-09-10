@@ -19,7 +19,7 @@ npm start
 The connector includes the supplied institutional entry URL and prompted ZIP as fallback defaults. Set them explicitly in deployment configuration when possible, and override them if your institution or profile differs. The session encryption key remains required:
 
 - `MOTOR_ENTRY_URL`: the EBSCO entry URL for the institution/profile; defaults to the supplied `ns145344`/`autorepso` profile.
-- `MOTOR_PROMPT_VALUE`: the authorized prompted-login value; defaults to the supplied ZIP `20234`.
+- `MOTOR_PROMPT_VALUE`: the authorized prompted-login value; defaults to the nearby ZIP `20230`.
 - `SESSION_ENCRYPTION_KEY`: a 32-byte key encoded as 64 hexadecimal characters.
 
 The prompt value is an access credential. Anyone with access to this public repository can see the fallback value, so rotate or override it before using this repository outside the supplied environment. The connector does not bypass provider entitlement controls; the operator must supply authorized access.
@@ -35,6 +35,8 @@ The default request path is:
 3. Re-authenticate only when the session is missing, explicitly near expiry, or MOTOR returns HTTP 401/403.
 4. Retry the idempotent GET once after a refresh.
 
+Concurrent startup validation is single-flight. Upstream requests are bounded by `MAX_CONCURRENT_UPSTREAM`, successful MOTOR responses retain any renewed session cookies, and a failed refresh briefly enters a shared cooldown so a sustained traversal cannot create an authentication-request stampede.
+
 The session file is AES-256-GCM encrypted, written with restrictive directory/file permissions, and replaced atomically. Session cookies are never written in plaintext. Browser automation is not part of the default runtime because the direct prompted-login HTTP flow is lower latency and has fewer moving parts. A browser fallback is intentionally not enabled by this implementation.
 
 For a trusted caller that already has an authorized upstream session, send the request-scoped header:
@@ -44,6 +46,8 @@ X-Upstream-Cookie: SessionIdentifier=...; AuthUserInfo=...
 ```
 
 That override is used only for the current request, is never persisted, and should be treated as sensitive. The server-side session remains the default when the header is absent. A caller must not send both an override and expect it to update the server session.
+
+Caller requests are admitted through a per-client sliding-window limit before any upstream session or MOTOR request is used. Excess traffic receives HTTP 429 locally and is not sent to MOTOR. Successful default-session responses use a bounded in-memory cache, and concurrent misses for the same resource are coalesced into one upstream request. Request-scoped cookie overrides bypass the shared cache.
 
 ## Public API
 
@@ -142,7 +146,9 @@ The OpenAPI document describes the public GET-only surface. No connector authent
 | `SESSION_REFRESH_SKEW_SECONDS` | Explicit expiry safety window |
 | `REQUEST_TIMEOUT_MS` | Per-upstream-request timeout |
 | `MAX_RESPONSE_BYTES`, `MAX_ASSET_BYTES` | Bounded upstream response sizes |
-| `MAX_CONCURRENT_UPSTREAM` | Deployment tuning limit reserved for concurrency control |
+| `MAX_CONCURRENT_UPSTREAM` | Maximum concurrent upstream requests; default `8` |
+| `MAX_CLIENT_REQUESTS_PER_WINDOW`, `CLIENT_RATE_WINDOW_SECONDS` | Per-caller admission limit; defaults to `60` requests per `60` seconds |
+| `RESPONSE_CACHE_MAX_ENTRIES`, `RESPONSE_CACHE_MAX_BYTES` | Bounded in-memory response-cache capacity; defaults to `512` entries and `64 MiB` |
 
 ## Verification
 

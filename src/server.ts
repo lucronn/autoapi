@@ -12,6 +12,8 @@ import { registerApiRoutes } from "./routes/api-routes.js";
 import { registerAssetRoutes } from "./routes/asset-routes.js";
 import { registerHealthRoutes } from "./routes/health-routes.js";
 import { registerOpenApi } from "./openapi.js";
+import { ClientRateLimiter } from "./http/client-rate-limiter.js";
+import { ResponseCache } from "./http/response-cache.js";
 
 export type ConnectorDependencies = {
   config: Config;
@@ -29,6 +31,14 @@ export async function createApp(deps: ConnectorDependencies): Promise<FastifyIns
     { refreshSkewSeconds: deps.config.session.refreshSkewSeconds },
   );
   const assetProxy = deps.assetProxy ?? new AssetProxy(motorClient, deps.config);
+  const clientRateLimiter = new ClientRateLimiter({
+    maxRequests: deps.config.limits.maxClientRequestsPerWindow,
+    windowSeconds: deps.config.limits.clientRateWindowSeconds,
+  });
+  const responseCache = new ResponseCache({
+    maxEntries: deps.config.limits.responseCacheMaxEntries,
+    maxBytes: deps.config.limits.responseCacheMaxBytes,
+  });
 
   app.setErrorHandler((error, request, reply) => {
     const serialized = serializeError(error, request.id);
@@ -42,7 +52,7 @@ export async function createApp(deps: ConnectorDependencies): Promise<FastifyIns
   });
   await app.register(swaggerUi, { routePrefix: "/docs" });
   app.get("/openapi.json", async () => app.swagger());
-  registerApiRoutes(app, { config: deps.config, motorClient, sessionManager });
+  registerApiRoutes(app, { config: deps.config, motorClient, sessionManager, clientRateLimiter, responseCache });
   registerAssetRoutes(app, { config: deps.config, assetProxy, sessionManager });
   registerHealthRoutes(app);
   await app.ready();

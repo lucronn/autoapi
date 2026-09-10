@@ -1,6 +1,7 @@
 export type ConnectorErrorCode =
   | "configuration_error"
   | "invalid_request"
+  | "client_rate_limited"
   | "upstream_auth_failed"
   | "upstream_error"
   | "upstream_timeout"

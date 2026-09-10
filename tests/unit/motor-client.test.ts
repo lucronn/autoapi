@@ -47,4 +47,17 @@ describe("MotorApiClient", () => {
     expect(seen.url).toContain("bucketName=Component%20Location%20Diagrams");
     expect(seen.cookie).toContain("SessionIdentifier=synthetic");
   });
+
+  it("adopts a renewed upstream session cookie from a successful response", async () => {
+    const transport: HttpTransport = async () => ({
+      status: 200,
+      headers: { "content-type": "application/json", "set-cookie": "SessionIdentifier=renewed; Path=/" },
+      body: Buffer.from('{"header":{"statusCode":200},"body":[]}'),
+    });
+    const client = new MotorApiClient(config, transport);
+
+    await client.execute("years", {}, session);
+
+    expect(session.cookieJar.toHeader(1_700_000_000)).toContain("SessionIdentifier=renewed");
+  });
 });

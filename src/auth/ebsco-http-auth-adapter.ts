@@ -51,6 +51,7 @@ export class EbscoHttpAuthAdapter implements AuthAdapter {
     this.client = new HttpClient(transport, {
       maxResponseBytes: config.limits.maxResponseBytes,
       timeoutMs: config.limits.requestTimeoutMs,
+      maxConcurrentRequests: config.limits.maxConcurrentUpstream,
     });
   }
 

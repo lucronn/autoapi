@@ -16,6 +16,7 @@ export class MotorApiClient {
     this.http = new HttpClient(transport, {
       maxResponseBytes: config.limits.maxResponseBytes,
       timeoutMs: config.limits.requestTimeoutMs,
+      maxConcurrentRequests: config.limits.maxConcurrentUpstream,
     });
   }
 
@@ -30,7 +31,7 @@ export class MotorApiClient {
 
   async executeResponse(routeId: MotorRouteId, params: MotorRouteParams, session: AuthenticatedSession, maxResponseBytes?: number): Promise<HttpResponse> {
     const request = this.buildRequest(routeId, params);
-    return this.http.request({
+    const response = await this.http.request({
       method: request.method,
       url: request.url,
       headers: {
@@ -38,6 +39,9 @@ export class MotorApiClient {
         cookie: session.cookieJar.toHeader(Math.floor(Date.now() / 1000)),
       },
     }, { maxResponseBytes });
+    const setCookie = response.headers["set-cookie"];
+    if (setCookie) session.cookieJar.addSetCookie(setCookie, Math.floor(Date.now() / 1000));
+    return response;
   }
 
   async execute<T = unknown>(routeId: MotorRouteId, params: MotorRouteParams, session: AuthenticatedSession): Promise<UpstreamEnvelope<T>> {

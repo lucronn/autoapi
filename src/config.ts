@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 
 export const DEFAULT_MOTOR_ENTRY_URL = "https://search.ebscohost.com/login.aspx?authtype=ip,geo,cpid,uid&groupid=main&custid=ns145344&profile=autorepso";
-export const DEFAULT_MOTOR_PROMPT_VALUE = "20234";
+export const DEFAULT_MOTOR_PROMPT_VALUE = "20230";
 
 export type Config = {
   host: string;
@@ -25,6 +25,10 @@ export type Config = {
     maxResponseBytes: number;
     maxAssetBytes: number;
     maxConcurrentUpstream: number;
+    maxClientRequestsPerWindow: number;
+    clientRateWindowSeconds: number;
+    responseCacheMaxEntries: number;
+    responseCacheMaxBytes: number;
   };
 };
 
@@ -43,6 +47,10 @@ const defaults = {
   maxResponseBytes: 8 * 1024 * 1024,
   maxAssetBytes: 32 * 1024 * 1024,
   maxConcurrentUpstream: 8,
+  maxClientRequestsPerWindow: 60,
+  clientRateWindowSeconds: 60,
+  responseCacheMaxEntries: 512,
+  responseCacheMaxBytes: 64 * 1024 * 1024,
 } as const;
 
 function required(env: NodeJS.ProcessEnv, key: string, fallback?: string): string {
@@ -109,6 +117,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       maxResponseBytes: positiveInteger(env, "MAX_RESPONSE_BYTES", defaults.maxResponseBytes),
       maxAssetBytes: positiveInteger(env, "MAX_ASSET_BYTES", defaults.maxAssetBytes),
       maxConcurrentUpstream: positiveInteger(env, "MAX_CONCURRENT_UPSTREAM", defaults.maxConcurrentUpstream),
+      maxClientRequestsPerWindow: positiveInteger(env, "MAX_CLIENT_REQUESTS_PER_WINDOW", defaults.maxClientRequestsPerWindow),
+      clientRateWindowSeconds: positiveInteger(env, "CLIENT_RATE_WINDOW_SECONDS", defaults.clientRateWindowSeconds),
+      responseCacheMaxEntries: positiveInteger(env, "RESPONSE_CACHE_MAX_ENTRIES", defaults.responseCacheMaxEntries),
+      responseCacheMaxBytes: positiveInteger(env, "RESPONSE_CACHE_MAX_BYTES", defaults.responseCacheMaxBytes),
     },
   };
 }

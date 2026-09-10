@@ -70,4 +70,42 @@ describe("public API routes", () => {
     expect(cookie).toContain("Override=synthetic");
     await app.close();
   });
+
+  it("serves repeated default-session reads from cache", async () => {
+    let upstreamCalls = 0;
+    const app = await appWithTransport(async () => {
+      upstreamCalls += 1;
+      return { status: 200, headers: { "content-type": "application/json" }, body: Buffer.from('{"header":{},"body":[]}') };
+    });
+
+    expect((await app.inject({ method: "GET", url: "/v1/api/years" })).statusCode).toBe(200);
+    expect((await app.inject({ method: "GET", url: "/v1/api/years" })).statusCode).toBe(200);
+    expect(upstreamCalls).toBe(1);
+    await app.close();
+  });
+
+  it("rejects an over-limit caller before the upstream transport and does not allow a bulk flag", async () => {
+    let upstreamCalls = 0;
+    const limitedConfig = {
+      ...config,
+      limits: { ...config.limits, maxClientRequestsPerWindow: 1, clientRateWindowSeconds: 60 },
+    };
+    const app = await createApp({
+      config: limitedConfig,
+      motorClient: new MotorApiClient(limitedConfig, async () => {
+        upstreamCalls += 1;
+        return { status: 200, headers: { "content-type": "application/json" }, body: Buffer.from('{"header":{},"body":[]}') };
+      }),
+      sessionManager: new SessionManager(adapter, store, { refreshSkewSeconds: 300 }),
+    });
+
+    expect((await app.inject({ method: "GET", url: "/v1/api/years" })).statusCode).toBe(200);
+    const limited = await app.inject({ method: "GET", url: "/v1/api/years" });
+    expect(limited.statusCode).toBe(429);
+    expect(limited.json().error).toMatchObject({ code: "client_rate_limited" });
+    expect(limited.headers["retry-after"]).toBeDefined();
+    expect((await app.inject({ method: "GET", url: "/v1/api/years?bulk=1" })).statusCode).toBe(400);
+    expect(upstreamCalls).toBe(1);
+    await app.close();
+  });
 });

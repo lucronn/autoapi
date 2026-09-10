@@ -39,4 +39,21 @@ describe("HttpClient", () => {
       url: "https://sites.motor.com/m1/api/years",
     })).rejects.toMatchObject({ code: "invalid_request" });
   });
+
+  it("bounds concurrent upstream requests", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const transport: HttpTransport = async () => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      inFlight -= 1;
+      return { status: 200, headers: {}, body: Buffer.from("ok") };
+    };
+    const client = new HttpClient(transport, { maxConcurrentRequests: 2 });
+
+    await Promise.all(Array.from({ length: 8 }, () => client.request({ method: "GET", url: "https://sites.motor.com/m1/api/years" })));
+
+    expect(peak).toBeLessThanOrEqual(2);
+  });
 });

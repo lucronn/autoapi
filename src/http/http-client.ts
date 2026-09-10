@@ -23,7 +23,26 @@ export type HttpTransport = (request: HttpTransportRequest) => Promise<HttpRespo
 export type HttpClientOptions = {
   maxResponseBytes?: number;
   timeoutMs?: number;
+  maxConcurrentRequests?: number;
 };
+
+class ConcurrencyGate {
+  private active = 0;
+  private readonly waiters: Array<() => void> = [];
+
+  constructor(private readonly limit: number) {}
+
+  async run<T>(operation: () => Promise<T>): Promise<T> {
+    if (this.active >= this.limit) await new Promise<void>((resolve) => this.waiters.push(resolve));
+    this.active += 1;
+    try {
+      return await operation();
+    } finally {
+      this.active -= 1;
+      this.waiters.shift()?.();
+    }
+  }
+}
 
 function normalizeHeaders(headers: Record<string, unknown>): Record<string, string | string[]> {
   return Object.fromEntries(Object.entries(headers).map(([key, value]) => [
@@ -50,12 +69,18 @@ async function defaultTransport(input: HttpTransportRequest): Promise<HttpRespon
 
 export class HttpClient {
   private readonly options: Required<HttpClientOptions>;
+  private readonly gate: ConcurrencyGate;
 
   constructor(private readonly transport: HttpTransport = defaultTransport, options: HttpClientOptions = {}) {
     this.options = {
       maxResponseBytes: options.maxResponseBytes ?? 8 * 1024 * 1024,
       timeoutMs: options.timeoutMs ?? 15_000,
+      maxConcurrentRequests: options.maxConcurrentRequests ?? Number.MAX_SAFE_INTEGER,
     };
+    if (!Number.isSafeInteger(this.options.maxConcurrentRequests) || this.options.maxConcurrentRequests <= 0) {
+      throw new Error("maxConcurrentRequests must be a positive integer");
+    }
+    this.gate = new ConcurrencyGate(this.options.maxConcurrentRequests);
   }
 
   async request(input: HttpRequest, options: { maxResponseBytes?: number } = {}): Promise<HttpResponse> {
@@ -63,20 +88,22 @@ export class HttpClient {
     const url = new URL(input.url);
     if (url.protocol !== "https:") throw new ConnectorError("blocked_upstream_target", "Only HTTPS upstream targets are allowed", 400);
 
-    let response: HttpResponse;
-    try {
-      response = await this.transport({ ...input, signal: AbortSignal.timeout(this.options.timeoutMs) });
-    } catch (error) {
-      if (error instanceof ConnectorError) throw error;
-      if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-        throw new ConnectorError("upstream_timeout", "Upstream request timed out", 504);
+    return this.gate.run(async () => {
+      let response: HttpResponse;
+      try {
+        response = await this.transport({ ...input, signal: AbortSignal.timeout(this.options.timeoutMs) });
+      } catch (error) {
+        if (error instanceof ConnectorError) throw error;
+        if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+          throw new ConnectorError("upstream_timeout", "Upstream request timed out", 504);
+        }
+        throw new ConnectorError("upstream_error", "Upstream request failed", 502, undefined, error);
       }
-      throw new ConnectorError("upstream_error", "Upstream request failed", 502, undefined, error);
-    }
 
-    if (response.body.byteLength > (options.maxResponseBytes ?? this.options.maxResponseBytes)) {
-      throw new ConnectorError("upstream_response_too_large", "Upstream response exceeded the configured limit", 502, response.status);
-    }
-    return response;
+      if (response.body.byteLength > (options.maxResponseBytes ?? this.options.maxResponseBytes)) {
+        throw new ConnectorError("upstream_response_too_large", "Upstream response exceeded the configured limit", 502, response.status);
+      }
+      return response;
+    });
   }
 }

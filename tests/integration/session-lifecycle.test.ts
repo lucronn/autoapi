@@ -69,4 +69,26 @@ describe("session lifecycle", () => {
     expect(persisted.save).not.toHaveBeenCalled();
     await app.close();
   });
+
+  it("persists a renewed server session cookie returned by MOTOR", async () => {
+    const persisted = store(session("Persisted"));
+    const adapter: AuthAdapter = { authenticate: vi.fn(async () => session("Fresh")), validate: vi.fn(async () => ({ valid: true as const })) };
+    const app = await createApp({
+      config,
+      motorClient: new MotorApiClient(config, async () => ({
+        status: 200,
+        headers: { "content-type": "application/json", "set-cookie": "Renewed=yes; Path=/" },
+        body: Buffer.from('{"header":{"statusCode":200},"body":[]}'),
+      })),
+      sessionManager: new SessionManager(adapter, persisted, { refreshSkewSeconds: 300 }),
+    });
+
+    expect((await app.inject({ method: "GET", url: "/v1/api/years" })).statusCode).toBe(200);
+    expect(persisted.save).toHaveBeenCalledWith(expect.objectContaining({
+      cookieJar: expect.objectContaining({}),
+    }));
+    const saved = await persisted.load();
+    expect(saved?.cookieJar.toHeader(1_700_000_000)).toContain("Renewed=yes");
+    await app.close();
+  });
 });

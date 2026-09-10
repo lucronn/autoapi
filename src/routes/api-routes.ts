@@ -9,11 +9,15 @@ import { createAssetReference } from "../assets/asset-reference.js";
 import type { MotorApiClient, UpstreamEnvelope } from "../motor/motor-client.js";
 import type { HttpResponse } from "../http/http-client.js";
 import type { MotorRouteId } from "../motor/route-registry.js";
+import { ClientRateLimiter } from "../http/client-rate-limiter.js";
+import { ResponseCache } from "../http/response-cache.js";
 
 export type ApiRouteDependencies = {
   config: Config;
   motorClient: MotorApiClient;
   sessionManager: SessionManager;
+  clientRateLimiter: ClientRateLimiter;
+  responseCache: ResponseCache;
 };
 
 type PublicRoute = {
@@ -114,10 +118,18 @@ function normalizeEnvelope(envelope: UpstreamEnvelope<unknown>, request: Fastify
 
 async function handleRoute(request: FastifyRequest, reply: FastifyReply, deps: ApiRouteDependencies, route: PublicRoute): Promise<void> {
   const params = requestParams(request, route.query);
+  const admission = deps.clientRateLimiter.check(request.ip || "unknown");
+  if (!admission.allowed) {
+    reply.header("retry-after", String(admission.retryAfterSeconds));
+    throw new ConnectorError("client_rate_limited", "Caller request rate exceeded; request was not sent upstream", 429);
+  }
   const override = overrideSession(request);
+  const load = () => override
+    ? deps.motorClient.executeResponse(route.routeId, params, override)
+    : deps.sessionManager.withSession((session) => deps.motorClient.executeResponse(route.routeId, params, session));
   const response = override
-    ? await deps.motorClient.executeResponse(route.routeId, params, override)
-    : await deps.sessionManager.withSession((session) => deps.motorClient.executeResponse(route.routeId, params, session));
+    ? await load()
+    : await deps.responseCache.getOrSet(cacheKey(route.routeId, params), cacheTtlSeconds(route.routeId), load);
   if (response.status < 200 || response.status >= 300) throw new ConnectorError("upstream_error", "MOTOR request failed", 502, response.status);
 
   if (route.routeId === "graphic" || route.routeId === "asset" || route.routeId === "xml") {
@@ -129,6 +141,16 @@ async function handleRoute(request: FastifyRequest, reply: FastifyReply, deps: A
   const envelope = parseEnvelope(response);
   const query = request.query as Record<string, unknown>;
   await reply.send(query.raw === "true" || query.raw === true ? envelope : normalizeEnvelope(envelope, request, deps.config));
+}
+
+function cacheKey(routeId: MotorRouteId, params: Record<string, unknown>): string {
+  return `${routeId}:${JSON.stringify(Object.fromEntries(Object.entries(params).sort(([left], [right]) => left.localeCompare(right))))}`;
+}
+
+function cacheTtlSeconds(routeId: MotorRouteId): number {
+  if (routeId === "article" || routeId === "articleTitle" || routeId === "labor") return 24 * 60 * 60;
+  if (routeId === "graphic" || routeId === "asset" || routeId === "xml") return 60 * 60;
+  return 15 * 60;
 }
 
 export function registerApiRoutes(app: FastifyInstance, deps: ApiRouteDependencies): void {
