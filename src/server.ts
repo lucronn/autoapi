@@ -1,7 +1,8 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
 import Fastify, { type FastifyInstance } from "fastify";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
-import type { Config } from "./config.js";
+import { loadConfig, type Config } from "./config.js";
 import { EbscoHttpAuthAdapter } from "./auth/ebsco-http-auth-adapter.js";
 import { EncryptedSessionStore } from "./auth/session-store.js";
 import { SessionManager } from "./auth/session-manager.js";
@@ -58,4 +59,16 @@ export async function createApp(deps: ConnectorDependencies): Promise<FastifyIns
   await app.ready();
   await registerOpenApi(app);
   return app;
+}
+
+let serverlessAppPromise: Promise<FastifyInstance> | undefined;
+
+function getServerlessApp(): Promise<FastifyInstance> {
+  if (!serverlessAppPromise) serverlessAppPromise = createApp({ config: loadConfig() });
+  return serverlessAppPromise;
+}
+
+export default async function handler(request: IncomingMessage, response: ServerResponse): Promise<void> {
+  const app = await getServerlessApp();
+  app.server.emit("request", request, response);
 }

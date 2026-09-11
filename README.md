@@ -26,6 +26,10 @@ The prompt value is an access credential. Anyone with access to this public repo
 
 For development, `npm run dev` starts the TypeScript watcher. The default bind is `127.0.0.1:3000`; change `HOST`, `PORT`, and `PUBLIC_BASE_URL` as needed. `PUBLIC_BASE_URL` is used when normalized HTML is given to a frontend, so it should be the externally reachable connector origin.
 
+### Vercel
+
+The existing `src/server.ts` Fastify entrypoint also exports the Vercel Node.js handler. Configure `SESSION_ENCRYPTION_KEY` and set `SESSION_FILE_PATH=/tmp/autoapi-session.enc`; Vercel function filesystems are ephemeral, so durable server-session persistence requires an external encrypted store before relying on reauthentication across cold starts. Do not expose the service publicly without a trusted gateway or equivalent access control.
+
 ## Authentication and persistence
 
 The default request path is:

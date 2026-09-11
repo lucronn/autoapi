@@ -9,3 +9,4 @@ data/
 *.enc
 browser-profiles/
 live-smoke-captures/
+.vercel
