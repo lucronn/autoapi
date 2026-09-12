@@ -130,7 +130,12 @@ async function handleRoute(request: FastifyRequest, reply: FastifyReply, deps: A
   const response = override
     ? await load()
     : await deps.responseCache.getOrSet(cacheKey(route.routeId, params), cacheTtlSeconds(route.routeId), load);
-  if (response.status < 200 || response.status >= 300) throw new ConnectorError("upstream_error", "MOTOR request failed", 502, response.status);
+  if (response.status < 200 || response.status >= 300) {
+    if (route.routeId === "parts" && response.status === 500) {
+      throw new ConnectorError("parts_unavailable", "No parts list is available for this vehicle.", 404, response.status);
+    }
+    throw new ConnectorError("upstream_error", "MOTOR request failed", 502, response.status);
+  }
 
   if (route.routeId === "graphic" || route.routeId === "asset" || route.routeId === "xml") {
     const contentType = response.headers["content-type"];

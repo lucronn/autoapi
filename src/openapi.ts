@@ -64,7 +64,11 @@ export async function registerOpenApi(app: FastifyInstance): Promise<void> {
       operationId: route.routeId,
       summary: `Read MOTOR ${route.routeId}`,
       parameters,
-      responses: { "200": { description: "Upstream MOTOR response envelope" }, "502": { description: "Upstream failure" } },
+      responses: {
+        "200": { description: "Upstream MOTOR response envelope" },
+        ...(route.routeId === "parts" ? { "404": { description: "No parts list is available for this vehicle" } } : {}),
+        "502": { description: "Upstream failure" },
+      },
     };
   }
 }

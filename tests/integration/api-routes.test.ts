@@ -59,6 +59,29 @@ describe("public API routes", () => {
     await app.close();
   });
 
+  it("returns a distinct unavailable error when MOTOR has no parts list", async () => {
+    const app = await appWithTransport(async () => ({
+      status: 500,
+      headers: { "content-type": "application/json" },
+      body: Buffer.from('{"error":"parts unavailable"}'),
+    }));
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/api/source/GeneralMotors/vehicle/100342221/parts",
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "parts_unavailable",
+        message: "No parts list is available for this vehicle.",
+        upstreamStatus: 500,
+      },
+    });
+    await app.close();
+  });
+
   it("allows a request-scoped upstream cookie without persisting it", async () => {
     let cookie = "";
     const app = await appWithTransport(async (request) => {
