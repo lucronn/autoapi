@@ -12,7 +12,7 @@ describe("loadConfig", () => {
     const config = loadConfig({ SESSION_ENCRYPTION_KEY: "a".repeat(64) });
 
     expect(config.upstream.entryUrl).toBe("https://search.ebscohost.com/login.aspx?authtype=ip,geo,cpid,uid&groupid=main&custid=ns145344&profile=autorepso");
-    expect(config.upstream.promptValue).toBe("20230");
+    expect(config.upstream.promptValue).toBe("20234");
   });
 
   it("loads a server session configuration without exposing secret values", () => {

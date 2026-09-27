@@ -29,10 +29,10 @@ async function fixture(name: string): Promise<string> {
   return readFile(new URL(`../fixtures/${name}`, import.meta.url), "utf8");
 }
 
-async function appWithTransport(transport: HttpTransport) {
-  const motorClient = new MotorApiClient(config, transport);
+async function appWithTransport(transport: HttpTransport, appConfig = config) {
+  const motorClient = new MotorApiClient(appConfig, transport);
   const sessionManager = new SessionManager(adapter, store, { refreshSkewSeconds: 300 });
-  return createApp({ config, motorClient, sessionManager });
+  return createApp({ config: appConfig, motorClient, sessionManager });
 }
 
 describe("public API routes", () => {
@@ -59,6 +59,25 @@ describe("public API routes", () => {
     await app.close();
   });
 
+  it("keeps generated asset URLs HTTPS behind a reverse proxy", async () => {
+    const proxyConfig = loadConfig({
+      MOTOR_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
+      MOTOR_PROMPT_VALUE: "synthetic-prompt",
+      SESSION_ENCRYPTION_KEY: "a".repeat(64),
+    });
+    const responseBody = await fixture("article-component-location.json");
+    const app = await appWithTransport(async () => ({ status: 200, headers: { "content-type": "application/json" }, body: Buffer.from(responseBody) }), proxyConfig);
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/api/source/GeneralMotors/vehicle/100342221/article/4481222%3A17911387",
+      headers: { host: "connector.test", "x-forwarded-proto": "https" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().body.html).toMatch(/<img[^>]+src="https:\/\/connector\.test\/v1\/assets\/motor\//);
+    await app.close();
+  });
+
   it("returns a distinct unavailable error when MOTOR has no parts list", async () => {
     const app = await appWithTransport(async () => ({
       status: 500,
@@ -79,6 +98,43 @@ describe("public API routes", () => {
         upstreamStatus: 500,
       },
     });
+    await app.close();
+  });
+
+  it("returns stable unavailable errors for unsupported vehicle resources", async () => {
+    const app = await appWithTransport(async (request) => ({
+      status: request.url?.endsWith("/maintenanceSchedules/intervals") || request.url?.endsWith("/asset/example-asset-handle") ? 400 : 500,
+      headers: { "content-type": "application/json" },
+      body: Buffer.from('{"error":"resource unavailable"}'),
+    }));
+
+    const cases = [
+      {
+        url: "/v1/api/source/GeneralMotors/vehicle/100342221/labor/4481222%3A17911387",
+        code: "labor_unavailable",
+        message: "No labor data is available for this vehicle or article.",
+        upstreamStatus: 500,
+      },
+      ...["frequency", "intervals", "indicators"].map((schedule) => ({
+        url: `/v1/api/source/GeneralMotors/vehicle/100342221/maintenanceSchedules/${schedule}`,
+        code: "maintenance_schedule_unavailable",
+        message: "No maintenance schedule is available for this vehicle.",
+        upstreamStatus: schedule === "intervals" ? 400 : 500,
+      })),
+      {
+        url: "/v1/api/asset/example-asset-handle",
+        code: "asset_unavailable",
+        message: "The requested MOTOR asset is unavailable or invalid.",
+        upstreamStatus: 400,
+      },
+    ];
+
+    for (const testCase of cases) {
+      const response = await app.inject({ method: "GET", url: testCase.url });
+      expect(response.statusCode).toBe(404);
+      const { url: _url, ...error } = testCase;
+      expect(response.json()).toMatchObject({ error });
+    }
     await app.close();
   });
 

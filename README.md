@@ -19,7 +19,7 @@ npm start
 The connector includes the supplied institutional entry URL and prompted ZIP as fallback defaults. Set them explicitly in deployment configuration when possible, and override them if your institution or profile differs. The session encryption key remains required:
 
 - `MOTOR_ENTRY_URL`: the EBSCO entry URL for the institution/profile; defaults to the supplied `ns145344`/`autorepso` profile.
-- `MOTOR_PROMPT_VALUE`: the authorized prompted-login value; defaults to the nearby ZIP `20230`.
+- `MOTOR_PROMPT_VALUE`: the authorized prompted-login value; defaults to the supplied ZIP `20234`.
 - `SESSION_ENCRYPTION_KEY`: a 32-byte key encoded as 64 hexadecimal characters.
 
 The prompt value is an access credential. Anyone with access to this public repository can see the fallback value, so rotate or override it before using this repository outside the supplied environment. The connector does not bypass provider entitlement controls; the operator must supply authorized access.

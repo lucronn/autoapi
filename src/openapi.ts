@@ -19,7 +19,7 @@ const PARAMETER_EXAMPLES: Record<string, ParameterExample> = {
   vehicleId: { type: "string", example: "100342221", description: "MOTOR vehicle identifier." },
   articleId: { type: "string", example: "4481222:17911387", description: "MOTOR article identifier." },
   id: { type: "string", example: "4481151", description: "MOTOR graphic identifier." },
-  handleId: { type: "string", example: "example-asset-handle", description: "MOTOR asset handle." },
+  handleId: { type: "string", example: "example-asset-handle", description: "Valid MOTOR asset handle; the displayed placeholder is expected to return 404 until replaced." },
   vehicleIds: { type: "string", example: "100342221", description: "Comma-separated MOTOR vehicle identifiers." },
   bucketName: { type: "string", example: "Component Location Diagrams", description: "Optional MOTOR article bucket." },
   articleSubtype: { type: "string", example: "", description: "Optional MOTOR article subtype." },
@@ -67,6 +67,11 @@ export async function registerOpenApi(app: FastifyInstance): Promise<void> {
       responses: {
         "200": { description: "Upstream MOTOR response envelope" },
         ...(route.routeId === "parts" ? { "404": { description: "No parts list is available for this vehicle" } } : {}),
+        ...(route.routeId === "labor" ? { "404": { description: "No labor data is available for this vehicle or article" } } : {}),
+        ...(["maintenanceFrequency", "maintenanceIntervals", "maintenanceIndicators"].includes(route.routeId)
+          ? { "404": { description: "No maintenance schedule is available for this vehicle" } }
+          : {}),
+        ...(route.routeId === "asset" ? { "404": { description: "The requested MOTOR asset is unavailable or invalid" } } : {}),
         "502": { description: "Upstream failure" },
       },
     };

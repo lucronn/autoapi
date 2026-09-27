@@ -90,7 +90,11 @@ function parseEnvelope(response: HttpResponse): UpstreamEnvelope<unknown> {
 }
 
 function publicBaseUrl(request: FastifyRequest, config: Config): string {
-  return config.publicBaseUrl ?? `${request.protocol}://${request.hostname}`;
+  if (config.publicBaseUrl) return config.publicBaseUrl;
+  const forwardedProto = request.headers["x-forwarded-proto"];
+  const protocol = (Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto)?.split(",")[0]?.trim();
+  const safeProtocol = protocol === "http" || protocol === "https" ? protocol : request.protocol;
+  return `${safeProtocol}://${request.hostname}`;
 }
 
 function normalizeEnvelope(envelope: UpstreamEnvelope<unknown>, request: FastifyRequest, config: Config): UpstreamEnvelope<unknown> | (UpstreamEnvelope<unknown> & { connector: Record<string, unknown> }) {
@@ -131,8 +135,18 @@ async function handleRoute(request: FastifyRequest, reply: FastifyReply, deps: A
     ? await load()
     : await deps.responseCache.getOrSet(cacheKey(route.routeId, params), cacheTtlSeconds(route.routeId), load);
   if (response.status < 200 || response.status >= 300) {
+    const unavailableStatuses = new Set([400, 404, 500]);
     if (route.routeId === "parts" && response.status === 500) {
       throw new ConnectorError("parts_unavailable", "No parts list is available for this vehicle.", 404, response.status);
+    }
+    if (route.routeId === "labor" && unavailableStatuses.has(response.status)) {
+      throw new ConnectorError("labor_unavailable", "No labor data is available for this vehicle or article.", 404, response.status);
+    }
+    if (["maintenanceFrequency", "maintenanceIntervals", "maintenanceIndicators"].includes(route.routeId) && unavailableStatuses.has(response.status)) {
+      throw new ConnectorError("maintenance_schedule_unavailable", "No maintenance schedule is available for this vehicle.", 404, response.status);
+    }
+    if (route.routeId === "asset" && [400, 404].includes(response.status)) {
+      throw new ConnectorError("asset_unavailable", "The requested MOTOR asset is unavailable or invalid.", 404, response.status);
     }
     throw new ConnectorError("upstream_error", "MOTOR request failed", 502, response.status);
   }

@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 
 export const DEFAULT_MOTOR_ENTRY_URL = "https://search.ebscohost.com/login.aspx?authtype=ip,geo,cpid,uid&groupid=main&custid=ns145344&profile=autorepso";
-export const DEFAULT_MOTOR_PROMPT_VALUE = "20230";
+export const DEFAULT_MOTOR_PROMPT_VALUE = "20234";
 
 export type Config = {
   host: string;

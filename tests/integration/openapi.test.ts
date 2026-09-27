@@ -62,6 +62,15 @@ describe("OpenAPI", () => {
         schema: expect.objectContaining({ type: "boolean", default: false }),
       }),
     ]));
+    expect(document.paths["/v1/api/source/{contentSource}/vehicle/{vehicleId}/labor/{articleId}"].get.responses["404"]).toEqual({
+      description: "No labor data is available for this vehicle or article",
+    });
+    expect(document.paths["/v1/api/source/{contentSource}/vehicle/{vehicleId}/maintenanceSchedules/frequency"].get.responses["404"]).toEqual({
+      description: "No maintenance schedule is available for this vehicle",
+    });
+    expect(document.paths["/v1/api/asset/{handleId}"].get.responses["404"]).toEqual({
+      description: "The requested MOTOR asset is unavailable or invalid",
+    });
     await app.close();
   });
 });
