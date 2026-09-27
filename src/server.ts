@@ -24,7 +24,7 @@ export type ConnectorDependencies = {
 };
 
 export async function createApp(deps: ConnectorDependencies): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false, requestIdHeader: "x-request-id" });
+  const app = Fastify({ logger: false, requestIdHeader: "x-request-id", routerOptions: { maxParamLength: 1024 } });
   const motorClient = deps.motorClient ?? new MotorApiClient(deps.config);
   const sessionManager = deps.sessionManager ?? new SessionManager(
     new EbscoHttpAuthAdapter(deps.config),

@@ -5,6 +5,7 @@ import { CookieJar } from "../../src/auth/cookie-jar.js";
 import type { AuthAdapter, AuthenticatedSession } from "../../src/auth/auth-adapter.js";
 import { SessionManager } from "../../src/auth/session-manager.js";
 import { MotorApiClient } from "../../src/motor/motor-client.js";
+import { createAssetReference } from "../../src/assets/asset-reference.js";
 import type { HttpTransport } from "../../src/http/http-client.js";
 import { createApp } from "../../src/server.js";
 
@@ -75,6 +76,26 @@ describe("public API routes", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().body.html).toMatch(/<img[^>]+src="https:\/\/connector\.test\/v1\/assets\/motor\//);
+    await app.close();
+  });
+
+  it("accepts generated signed asset references longer than Fastify's default parameter limit", async () => {
+    const app = await appWithTransport(async () => ({
+      status: 200,
+      headers: { "content-type": "image/svg+xml" },
+      body: Buffer.from("<svg />"),
+    }));
+    const reference = createAssetReference(
+      { kind: "source", source: "GeneralMotors", id: "4481151" },
+      config.session.encryptionKey,
+      Math.floor(Date.now() / 1000),
+    );
+
+    const response = await app.inject({ method: "GET", url: `/v1/assets/motor/${reference}` });
+
+    expect(reference.length).toBeGreaterThan(100);
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toContain("image/svg+xml");
     await app.close();
   });
 
