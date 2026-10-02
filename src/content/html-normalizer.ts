@@ -5,6 +5,7 @@ import { rewriteResources, type AssetTarget, type RewrittenResource } from "./ur
 export type HtmlNormalizationContext = {
   publicBaseUrl: string;
   contentSource: string;
+  publicCatalog: string;
   vehicleId: string;
   connectorAssetUrl: (target: AssetTarget) => string;
   upstreamOrigin?: string;
@@ -29,7 +30,7 @@ const SAFE_ATTRIBUTES = new Set(["id", "class", "title", "alt", "width", "height
 const URL_ATTRIBUTES = new Set(["href", "src", "srcset", "style"]);
 
 function articleUrl(context: HtmlNormalizationContext, articleId: string): string {
-  return `${context.publicBaseUrl}/v1/api/source/${encodeURIComponent(context.contentSource)}/vehicle/${encodeURIComponent(context.vehicleId)}/article/${encodeURIComponent(articleId)}`;
+  return `${context.publicBaseUrl}/v1/api/catalog/${encodeURIComponent(context.publicCatalog)}/vehicle/${encodeURIComponent(context.vehicleId)}/article/${encodeURIComponent(articleId)}`;
 }
 
 function copySafeAttributes($: CheerioAPI, from: any, to: any, includeData = true): void {

@@ -65,47 +65,47 @@ Catalog and vehicle routes:
 | `GET /v1/api/year/{year}/makes` | `/m1/api/year/{year}/makes` |
 | `GET /v1/api/year/{year}/make/{make}/models` | `/m1/api/year/{year}/make/{make}/models` |
 | `GET /v1/api/vin/{vin}/vehicle` | `/m1/api/vin/{vin}/vehicle` |
-| `GET /v1/api/source/{contentSource}/vehicles?vehicleIds=...` | `/m1/api/source/{contentSource}/vehicles` |
-| `GET /v1/api/source/{contentSource}/{vehicleId}/motorvehicles` | `/m1/api/source/{contentSource}/{vehicleId}/motorvehicles` |
-| `GET /v1/api/source/{contentSource}/{vehicleId}/name` | `/m1/api/source/{contentSource}/{vehicleId}/name` |
+| `GET /v1/api/catalog/{catalog}/vehicles?vehicleIds=...` | Provider vehicle catalog |
+| `GET /v1/api/catalog/{catalog}/{vehicleId}/vehicle-details` | Provider vehicle details |
+| `GET /v1/api/catalog/{catalog}/{vehicleId}/name` | Provider vehicle name |
 
 Vehicle content routes:
 
 | Connector route | Allowed query parameters |
 | --- | --- |
-| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/articles/v2` | `bucketName`, `articleSubtype`, `searchTerm` |
-| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/article/{articleId}` | `bucketName`, `articleSubtype`, `searchTerm` |
-| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/article/{articleId}/title` | none |
-| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/labor/{articleId}` | none |
-| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/maintenanceSchedules/frequency` | none |
-| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/maintenanceSchedules/intervals` | none |
-| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/maintenanceSchedules/indicators` | none |
-| `GET /v1/api/source/{contentSource}/vehicle/{vehicleId}/parts` | none |
+| `GET /v1/api/catalog/{catalog}/vehicle/{vehicleId}/articles/v2` | `bucketName`, `articleSubtype`, `searchTerm` |
+| `GET /v1/api/catalog/{catalog}/vehicle/{vehicleId}/article/{articleId}` | `bucketName`, `articleSubtype`, `searchTerm` |
+| `GET /v1/api/catalog/{catalog}/vehicle/{vehicleId}/article/{articleId}/title` | none |
+| `GET /v1/api/catalog/{catalog}/vehicle/{vehicleId}/labor/{articleId}` | none |
+| `GET /v1/api/catalog/{catalog}/vehicle/{vehicleId}/maintenanceSchedules/frequency` | none |
+| `GET /v1/api/catalog/{catalog}/vehicle/{vehicleId}/maintenanceSchedules/intervals` | none |
+| `GET /v1/api/catalog/{catalog}/vehicle/{vehicleId}/maintenanceSchedules/indicators` | none |
+| `GET /v1/api/catalog/{catalog}/vehicle/{vehicleId}/parts` | none |
 
 Resource routes:
 
 | Connector route | Behavior |
 | --- | --- |
-| `GET /v1/api/source/{contentSource}/graphic/{id}` | Read-only graphic bytes, with upstream content type |
+| `GET /v1/api/catalog/{catalog}/graphic/{id}` | Read-only graphic bytes, with upstream content type |
 | `GET /v1/api/asset/{handleId}` | Read-only asset bytes, with upstream content type |
-| `GET /v1/api/source/{contentSource}/xml/{articleId}` | Read-only XML/text response |
+| `GET /v1/api/catalog/{catalog}/xml/{articleId}` | Read-only XML/text response |
 | `GET /v1/api/ui/usersettings` | Read-only user settings envelope |
 | `GET /v1/assets/reference/{signedReference}` | Signed, expiring asset proxy used by normalized HTML |
 
-`contentSource` is restricted to `UPSTREAM_ALLOWED_CONTENT_SOURCES` (default: `GeneralMotors,Motor,Toyota`). Path segments are encoded individually, so an article ID such as `4481222:17911387` is sent as one safe segment (`4481222%3A17911387`). Unknown query parameters are rejected rather than forwarded.
+`catalog` is a neutral public alias. The built-in aliases are `gm`, `toyota`, and `catalog`; they map to the configured provider catalogs server-side. Provider catalog names are never required in public route parameters. Path segments are encoded individually, so an article ID such as `4481222:17911387` is sent as one safe segment (`4481222%3A17911387`). Unknown query parameters are rejected rather than forwarded.
 
 ## Raw and normalized responses
 
 For JSON routes, the default response preserves upstream metadata and normalizes only an object body that contains an HTML field. Catalog arrays and other JSON bodies are returned unchanged. Add `raw=true` to an HTML-bearing request to get the parsed upstream envelope without normalization:
 
 ```text
-GET /v1/api/source/GeneralMotors/vehicle/100342221/article/4481222%3A17911387?bucketName=Component%20Location%20Diagrams&articleSubtype=&searchTerm=&raw=true
+GET /v1/api/catalog/gm/vehicle/100342221/article/4481222%3A17911387?bucketName=Component%20Location%20Diagrams&articleSubtype=&searchTerm=&raw=true
 ```
 
-The normalized form keeps the original `header` and document metadata, replaces `body.html`, and adds a `connector` namespace containing `normalized`, `links`, and `resources`. Custom provider tags are converted as follows:
+The normalized form keeps the original `header` and document metadata, replaces `body.html`, and adds a `connector` namespace containing `normalized`, `links`, and `resources`. Standalone provider branding in textual fields is replaced with `Autodbone`; URLs, asset references, compound catalog names, and opaque identifiers are preserved. Custom provider tags are converted as follows:
 
 - `<mtr-image id="..." ...>` becomes an ordinary `<img>` whose `src` points to a signed connector asset URL.
-- `<eplink linkkey="...">` becomes a connector article `<a>` link.
+- `<eplink linkkey="...">` becomes an Autodbone catalog article `<a>` link.
 - `<emph>` becomes `<em>`.
 - Other unknown custom elements become safe `<span>`/`<div>` elements while their unsafe/provider-specific attributes are removed.
 

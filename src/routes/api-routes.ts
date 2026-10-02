@@ -11,6 +11,8 @@ import type { HttpResponse } from "../http/http-client.js";
 import type { UpstreamRouteId } from "../upstream/route-registry.js";
 import { ClientRateLimiter } from "../http/client-rate-limiter.js";
 import { ResponseCache } from "../http/response-cache.js";
+import { maskProviderContent } from "../content/branding-mask.js";
+import { publicCatalogAlias, resolveCatalogAlias } from "./catalog-aliases.js";
 
 export type ApiRouteDependencies = {
   config: Config;
@@ -32,20 +34,20 @@ export const PUBLIC_API_ROUTES: readonly PublicRoute[] = [
   { method: "GET", url: "/v1/api/year/:year/makes", routeId: "makes", query: [] },
   { method: "GET", url: "/v1/api/year/:year/make/:make/models", routeId: "models", query: [] },
   { method: "GET", url: "/v1/api/vin/:vin/vehicle", routeId: "vinVehicle", query: [] },
-  { method: "GET", url: "/v1/api/source/:contentSource/vehicles", routeId: "vehicles", query: ["vehicleIds"] },
-  { method: "GET", url: "/v1/api/source/:contentSource/:vehicleId/motorvehicles", routeId: "vehicleDetails", query: [] },
-  { method: "GET", url: "/v1/api/source/:contentSource/:vehicleId/name", routeId: "vehicleName", query: [] },
-  { method: "GET", url: "/v1/api/source/:contentSource/vehicle/:vehicleId/articles/v2", routeId: "articles", query: ["bucketName", "articleSubtype", "searchTerm"] },
-  { method: "GET", url: "/v1/api/source/:contentSource/vehicle/:vehicleId/article/:articleId", routeId: "article", query: ["bucketName", "articleSubtype", "searchTerm"] },
-  { method: "GET", url: "/v1/api/source/:contentSource/vehicle/:vehicleId/article/:articleId/title", routeId: "articleTitle", query: [] },
-  { method: "GET", url: "/v1/api/source/:contentSource/vehicle/:vehicleId/labor/:articleId", routeId: "labor", query: [] },
-  { method: "GET", url: "/v1/api/source/:contentSource/vehicle/:vehicleId/maintenanceSchedules/frequency", routeId: "maintenanceFrequency", query: [] },
-  { method: "GET", url: "/v1/api/source/:contentSource/vehicle/:vehicleId/maintenanceSchedules/intervals", routeId: "maintenanceIntervals", query: [] },
-  { method: "GET", url: "/v1/api/source/:contentSource/vehicle/:vehicleId/maintenanceSchedules/indicators", routeId: "maintenanceIndicators", query: [] },
-  { method: "GET", url: "/v1/api/source/:contentSource/vehicle/:vehicleId/parts", routeId: "parts", query: [] },
-  { method: "GET", url: "/v1/api/source/:contentSource/graphic/:id", routeId: "graphic", query: [] },
+  { method: "GET", url: "/v1/api/catalog/:catalog/vehicles", routeId: "vehicles", query: ["vehicleIds"] },
+  { method: "GET", url: "/v1/api/catalog/:catalog/:vehicleId/vehicle-details", routeId: "vehicleDetails", query: [] },
+  { method: "GET", url: "/v1/api/catalog/:catalog/:vehicleId/name", routeId: "vehicleName", query: [] },
+  { method: "GET", url: "/v1/api/catalog/:catalog/vehicle/:vehicleId/articles/v2", routeId: "articles", query: ["bucketName", "articleSubtype", "searchTerm"] },
+  { method: "GET", url: "/v1/api/catalog/:catalog/vehicle/:vehicleId/article/:articleId", routeId: "article", query: ["bucketName", "articleSubtype", "searchTerm"] },
+  { method: "GET", url: "/v1/api/catalog/:catalog/vehicle/:vehicleId/article/:articleId/title", routeId: "articleTitle", query: [] },
+  { method: "GET", url: "/v1/api/catalog/:catalog/vehicle/:vehicleId/labor/:articleId", routeId: "labor", query: [] },
+  { method: "GET", url: "/v1/api/catalog/:catalog/vehicle/:vehicleId/maintenanceSchedules/frequency", routeId: "maintenanceFrequency", query: [] },
+  { method: "GET", url: "/v1/api/catalog/:catalog/vehicle/:vehicleId/maintenanceSchedules/intervals", routeId: "maintenanceIntervals", query: [] },
+  { method: "GET", url: "/v1/api/catalog/:catalog/vehicle/:vehicleId/maintenanceSchedules/indicators", routeId: "maintenanceIndicators", query: [] },
+  { method: "GET", url: "/v1/api/catalog/:catalog/vehicle/:vehicleId/parts", routeId: "parts", query: [] },
+  { method: "GET", url: "/v1/api/catalog/:catalog/graphic/:id", routeId: "graphic", query: [] },
   { method: "GET", url: "/v1/api/asset/:handleId", routeId: "asset", query: [] },
-  { method: "GET", url: "/v1/api/source/:contentSource/xml/:articleId", routeId: "xml", query: [] },
+  { method: "GET", url: "/v1/api/catalog/:catalog/xml/:articleId", routeId: "xml", query: [] },
   { method: "GET", url: "/v1/api/ui/usersettings", routeId: "userSettings", query: [] },
 ];
 
@@ -53,8 +55,9 @@ function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
 }
 
-function requestParams(request: FastifyRequest, queryNames: readonly string[]): Record<string, unknown> {
+function requestParams(request: FastifyRequest, queryNames: readonly string[], allowedContentSources: readonly string[]): Record<string, unknown> {
   const params = { ...(request.params as Record<string, unknown>) };
+  if (params.catalog !== undefined) params.contentSource = resolveCatalogAlias(params.catalog, allowedContentSources);
   const query = request.query as Record<string, unknown>;
   for (const key of Object.keys(query)) {
     if (key !== "raw" && !queryNames.includes(key)) throw new ConnectorError("invalid_request", `Unsupported query parameter: ${key}`, 400);
@@ -98,13 +101,17 @@ function publicBaseUrl(request: FastifyRequest, config: Config): string {
 }
 
 function normalizeEnvelope(envelope: UpstreamEnvelope<unknown>, request: FastifyRequest, config: Config): UpstreamEnvelope<unknown> | (UpstreamEnvelope<unknown> & { connector: Record<string, unknown> }) {
-  if (!envelope.body || typeof envelope.body !== "object" || Array.isArray(envelope.body) || typeof (envelope.body as Record<string, unknown>).html !== "string") {
-    return envelope;
+  const catalog = String((request.params as Record<string, unknown>).catalog ?? "");
+  const content = maskProviderContent(envelope.body);
+  const maskedEnvelope = { ...envelope, body: content };
+  if (!content || typeof content !== "object" || Array.isArray(content) || typeof (content as Record<string, unknown>).html !== "string") {
+    return maskedEnvelope;
   }
-  const body = envelope.body as Record<string, unknown>;
+  const body = content as Record<string, unknown>;
   const context = {
     publicBaseUrl: publicBaseUrl(request, config),
-    contentSource: String((request.params as Record<string, unknown>).contentSource ?? ""),
+    contentSource: resolveCatalogAlias(catalog, config.upstream.allowedContentSources),
+    publicCatalog: publicCatalogAlias(resolveCatalogAlias(catalog, config.upstream.allowedContentSources)),
     vehicleId: String((request.params as Record<string, unknown>).vehicleId ?? ""),
     upstreamOrigin: config.upstream.apiOrigin,
     connectorAssetUrl: (target: { kind: "source" | "graphic" | "asset"; id: string; source?: string }) => {
@@ -114,14 +121,14 @@ function normalizeEnvelope(envelope: UpstreamEnvelope<unknown>, request: Fastify
   };
   const normalized = normalizeHtml(String(body.html), context);
   return {
-    ...envelope,
+    ...maskedEnvelope,
     body: { ...body, html: normalized.html },
     connector: { normalized: true, links: normalized.links, resources: normalized.resources },
   };
 }
 
 async function handleRoute(request: FastifyRequest, reply: FastifyReply, deps: ApiRouteDependencies, route: PublicRoute): Promise<void> {
-  const params = requestParams(request, route.query);
+  const params = requestParams(request, route.query, deps.config.upstream.allowedContentSources);
   const admission = deps.clientRateLimiter.check(request.ip || "unknown");
   if (!admission.allowed) {
     reply.header("retry-after", String(admission.retryAfterSeconds));
@@ -154,12 +161,16 @@ async function handleRoute(request: FastifyRequest, reply: FastifyReply, deps: A
   if (route.routeId === "graphic" || route.routeId === "asset" || route.routeId === "xml") {
     const contentType = response.headers["content-type"];
     if (typeof contentType === "string") reply.type(contentType);
-    await reply.send(response.body);
+    const textContentType = typeof contentType === "string" ? contentType : "";
+    const body = route.routeId === "xml" && /(?:xml|text)\//i.test(textContentType)
+      ? Buffer.from(maskProviderContent(response.body.toString("utf8")))
+      : response.body;
+    await reply.send(body);
     return;
   }
   const envelope = parseEnvelope(response);
   const query = request.query as Record<string, unknown>;
-  await reply.send(query.raw === "true" || query.raw === true ? envelope : normalizeEnvelope(envelope, request, deps.config));
+  await reply.send(query.raw === "true" || query.raw === true ? { ...envelope, body: maskProviderContent(envelope.body) } : normalizeEnvelope(envelope, request, deps.config));
 }
 
 function cacheKey(routeId: UpstreamRouteId, params: Record<string, unknown>): string {

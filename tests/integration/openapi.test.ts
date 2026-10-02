@@ -17,6 +17,7 @@ describe("OpenAPI", () => {
     expect(response.statusCode).toBe(200);
     expect(Object.keys(document.paths)).toContain("/v1/api/year/{year}/makes");
     expect(JSON.stringify(document.paths)).not.toMatch(/POST|PUT|PATCH|DELETE/);
+    expect(JSON.stringify(document.paths)).not.toMatch(/motor/i);
     await app.close();
   });
 
@@ -25,13 +26,13 @@ describe("OpenAPI", () => {
     const response = await app.inject({ method: "GET", url: "/openapi.json" });
     const document = response.json();
 
-    expect(document.paths["/v1/api/source/{contentSource}/vehicle/{vehicleId}/article/{articleId}"]?.get.parameters).toEqual(expect.arrayContaining([
+    expect(document.paths["/v1/api/catalog/{catalog}/vehicle/{vehicleId}/article/{articleId}"]?.get.parameters).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        name: "contentSource",
+        name: "catalog",
         in: "path",
         required: true,
-        example: "GeneralMotors",
-        schema: expect.objectContaining({ type: "string", default: "GeneralMotors" }),
+        example: "gm",
+        schema: expect.objectContaining({ type: "string", default: "gm" }),
       }),
       expect.objectContaining({
         name: "vehicleId",
@@ -62,10 +63,10 @@ describe("OpenAPI", () => {
         schema: expect.objectContaining({ type: "boolean", default: false }),
       }),
     ]));
-    expect(document.paths["/v1/api/source/{contentSource}/vehicle/{vehicleId}/labor/{articleId}"].get.responses["404"]).toEqual({
+    expect(document.paths["/v1/api/catalog/{catalog}/vehicle/{vehicleId}/labor/{articleId}"].get.responses["404"]).toEqual({
       description: "No labor data is available for this vehicle or article",
     });
-    expect(document.paths["/v1/api/source/{contentSource}/vehicle/{vehicleId}/maintenanceSchedules/frequency"].get.responses["404"]).toEqual({
+    expect(document.paths["/v1/api/catalog/{catalog}/vehicle/{vehicleId}/maintenanceSchedules/frequency"].get.responses["404"]).toEqual({
       description: "No maintenance schedule is available for this vehicle",
     });
     expect(document.paths["/v1/api/asset/{handleId}"].get.responses["404"]).toEqual({

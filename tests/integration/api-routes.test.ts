@@ -37,6 +37,13 @@ async function appWithTransport(transport: HttpTransport, appConfig = config) {
 }
 
 describe("public API routes", () => {
+  it("does not expose provider-branded route names", async () => {
+    const app = await appWithTransport(async () => ({ status: 200, headers: { "content-type": "application/json" }, body: Buffer.from('{"header":{},"body":[]}') }));
+    const response = await app.inject({ method: "GET", url: "/v1/api/source/GeneralMotors/vehicle/100342221/parts" });
+    expect(response.statusCode).toBe(404);
+    await app.close();
+  });
+
   it("returns the makes envelope through the connector", async () => {
     const responseBody = await fixture("makes-2024.json");
     const app = await appWithTransport(async () => ({ status: 200, headers: { "content-type": "application/json" }, body: Buffer.from(responseBody) }));
@@ -51,7 +58,7 @@ describe("public API routes", () => {
     const app = await appWithTransport(async () => ({ status: 200, headers: { "content-type": "application/json" }, body: Buffer.from(responseBody) }));
     const response = await app.inject({
       method: "GET",
-      url: "/v1/api/source/GeneralMotors/vehicle/100342221/article/4481222%3A17911387?bucketName=Component%20Location%20Diagrams&articleSubtype=&searchTerm=",
+      url: "/v1/api/catalog/gm/vehicle/100342221/article/4481222%3A17911387?bucketName=Component%20Location%20Diagrams&articleSubtype=&searchTerm=",
     });
     expect(response.statusCode).toBe(200);
     expect(response.json().body.html).toContain("<img");
@@ -70,7 +77,7 @@ describe("public API routes", () => {
     const app = await appWithTransport(async () => ({ status: 200, headers: { "content-type": "application/json" }, body: Buffer.from(responseBody) }), proxyConfig);
     const response = await app.inject({
       method: "GET",
-      url: "/v1/api/source/GeneralMotors/vehicle/100342221/article/4481222%3A17911387",
+      url: "/v1/api/catalog/gm/vehicle/100342221/article/4481222%3A17911387",
       headers: { host: "connector.test", "x-forwarded-proto": "https" },
     });
 
@@ -108,7 +115,7 @@ describe("public API routes", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/v1/api/source/GeneralMotors/vehicle/100342221/parts",
+      url: "/v1/api/catalog/gm/vehicle/100342221/parts",
     });
 
     expect(response.statusCode).toBe(404);
@@ -131,13 +138,13 @@ describe("public API routes", () => {
 
     const cases = [
       {
-        url: "/v1/api/source/GeneralMotors/vehicle/100342221/labor/4481222%3A17911387",
+        url: "/v1/api/catalog/gm/vehicle/100342221/labor/4481222%3A17911387",
         code: "labor_unavailable",
         message: "No labor data is available for this vehicle or article.",
         upstreamStatus: 500,
       },
       ...["frequency", "intervals", "indicators"].map((schedule) => ({
-        url: `/v1/api/source/GeneralMotors/vehicle/100342221/maintenanceSchedules/${schedule}`,
+        url: `/v1/api/catalog/gm/vehicle/100342221/maintenanceSchedules/${schedule}`,
         code: "maintenance_schedule_unavailable",
         message: "No maintenance schedule is available for this vehicle.",
         upstreamStatus: schedule === "intervals" ? 400 : 500,

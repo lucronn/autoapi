@@ -15,7 +15,7 @@ const PARAMETER_EXAMPLES: Record<string, ParameterExample> = {
   year: { type: "string", example: "2024", description: "Model year." },
   make: { type: "string", example: "Toyota", description: "Vehicle make name." },
   vin: { type: "string", example: "1HGCM82633A004352", description: "Vehicle identification number." },
-  contentSource: { type: "string", example: "GeneralMotors", description: "Provider content source." },
+  catalog: { type: "string", example: "gm", description: "Neutral catalog alias (for example, gm or toyota)." },
   vehicleId: { type: "string", example: "100342221", description: "Provider vehicle identifier." },
   articleId: { type: "string", example: "4481222:17911387", description: "Provider article identifier." },
   id: { type: "string", example: "4481151", description: "Provider graphic identifier." },

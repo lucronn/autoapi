@@ -24,7 +24,7 @@ const transport: HttpTransport = async () => ({ status: 200, headers: { "content
 describe("security boundaries", () => {
   it("rejects disallowed sources and unsupported query parameters", async () => {
     const app = await createApp({ config, upstreamClient: new UpstreamApiClient(config, transport), sessionManager: new SessionManager(adapter, store, { refreshSkewSeconds: 300 }) });
-    expect((await app.inject({ method: "GET", url: "/v1/api/source/Untrusted/vehicles?vehicleIds=1" })).statusCode).toBe(400);
+    expect((await app.inject({ method: "GET", url: "/v1/api/catalog/untrusted/vehicles?vehicleIds=1" })).statusCode).toBe(400);
     expect((await app.inject({ method: "GET", url: "/v1/api/years?arbitrary=http%3A%2F%2F127.0.0.1" })).statusCode).toBe(400);
     await app.close();
   });

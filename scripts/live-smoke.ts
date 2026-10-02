@@ -5,6 +5,7 @@ import { EbscoHttpAuthAdapter } from "../src/auth/ebsco-http-auth-adapter.js";
 import { UpstreamApiClient } from "../src/upstream/upstream-client.js";
 import { normalizeHtml } from "../src/content/html-normalizer.js";
 import { ConnectorError } from "../src/errors.js";
+import { publicCatalogAlias } from "../src/routes/catalog-aliases.js";
 
 export type SmokeResult = {
   route: string;
@@ -91,6 +92,7 @@ async function main(): Promise<void> {
         const normalized = normalizeHtml(body.html, {
           publicBaseUrl: config.publicBaseUrl ?? "http://127.0.0.1:3000",
           contentSource: String(articleParams.contentSource),
+          publicCatalog: publicCatalogAlias(String(articleParams.contentSource)),
           vehicleId: String(articleParams.vehicleId),
           upstreamOrigin: config.upstream.apiOrigin,
           connectorAssetUrl: () => "http://127.0.0.1:3000/v1/assets/reference/[REDACTED]",

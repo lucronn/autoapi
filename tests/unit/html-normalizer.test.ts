@@ -4,6 +4,7 @@ import { normalizeHtml, type HtmlNormalizationContext } from "../../src/content/
 const context: HtmlNormalizationContext = {
   publicBaseUrl: "https://connector.test",
   contentSource: "GeneralMotors",
+  publicCatalog: "gm",
   vehicleId: "100342221",
   connectorAssetUrl: ({ id, source }) => `https://connector.test/v1/assets/reference/source/${source}/${id}`,
 };
@@ -18,7 +19,7 @@ describe("Upstream HTML normalizer", () => {
 
   it("maps embedded link and emphasis tags without executing content", () => {
     const result = normalizeHtml('<p><eplink linkfield="AN" linkkey="4481222">Open</eplink> <emph>bold-ish</emph></p>', context);
-    expect(result.html).toContain('<a href="https://connector.test/v1/api/source/GeneralMotors/vehicle/100342221/article/4481222">Open</a>');
+    expect(result.html).toContain('<a href="https://connector.test/v1/api/catalog/gm/vehicle/100342221/article/4481222">Open</a>');
     expect(result.html).toContain("<em>bold-ish</em>");
     expect(result.html).not.toContain("eplink");
   });
