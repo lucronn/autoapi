@@ -11,7 +11,7 @@ export type AssetRouteDependencies = {
 };
 
 export function registerAssetRoutes(app: FastifyInstance, deps: AssetRouteDependencies): void {
-  app.get("/v1/assets/motor/:reference", async (request, reply) => {
+  app.get("/v1/assets/reference/:reference", async (request, reply) => {
     const value = request.headers["x-upstream-cookie"];
     const now = Math.floor(Date.now() / 1000);
     const override = typeof value === "string"

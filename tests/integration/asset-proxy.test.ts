@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { loadConfig } from "../../src/config.js";
 import { CookieJar } from "../../src/auth/cookie-jar.js";
 import type { AuthenticatedSession } from "../../src/auth/auth-adapter.js";
-import { MotorApiClient } from "../../src/motor/motor-client.js";
+import { UpstreamApiClient } from "../../src/upstream/upstream-client.js";
 import { createAssetReference } from "../../src/assets/asset-reference.js";
 import { AssetProxy } from "../../src/assets/asset-proxy.js";
 import type { HttpTransport } from "../../src/http/http-client.js";
 
 const config = loadConfig({
-  MOTOR_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
-  MOTOR_PROMPT_VALUE: "synthetic-prompt",
+  UPSTREAM_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
+  UPSTREAM_PROMPT_VALUE: "synthetic-prompt",
   SESSION_ENCRYPTION_KEY: "a".repeat(64),
 });
 const secret = Buffer.from("asset-proxy-test-secret");
@@ -26,7 +26,7 @@ describe("AssetProxy", () => {
       headers: { "content-type": "image/svg+xml", "content-length": "6", etag: "synthetic-etag" },
       body: Buffer.from("<svg/>") ,
     });
-    const client = new MotorApiClient(config, transport);
+    const client = new UpstreamApiClient(config, transport);
     const proxy = new AssetProxy(client, config, secret);
     const reference = createAssetReference({ kind: "source", source: "GeneralMotors", id: "4481151" }, secret, Math.floor(Date.now() / 1000));
     const asset = await proxy.stream(reference, session);

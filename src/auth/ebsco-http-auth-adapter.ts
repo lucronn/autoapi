@@ -129,14 +129,14 @@ export class EbscoHttpAuthAdapter implements AuthAdapter {
 
     const callback = new URL(authorization.context.redirectUri);
     ensureAllowed(callback, this.config);
-    // The callback chain can finish at a stale or moved MOTOR UI landing page.
+    // The callback chain can finish at a stale or moved upstream UI landing page.
     // Authentication is established by the callback redirects and must be
     // confirmed by the read-only API probe below, not by the UI page status.
     await this.followGet(callback.toString(), jar);
 
     const session: AuthenticatedSession = { source: "server", cookieJar: jar, createdAt: nowSeconds() };
     const validation = await this.validate(session);
-    if (!validation.valid) throw new ConnectorError("upstream_auth_failed", "Authenticated MOTOR session could not be validated", 502);
+    if (!validation.valid) throw new ConnectorError("upstream_auth_failed", "Authenticated upstream session could not be validated", 502);
     if (validation.expiresAt !== undefined) session.expiresAt = validation.expiresAt;
     return session;
   }
@@ -152,7 +152,7 @@ export class EbscoHttpAuthAdapter implements AuthAdapter {
     });
     if (response.status === 401 || response.status === 403) return { valid: false, reason: "unauthorized" };
     if (response.status < 200 || response.status >= 300) return { valid: false, reason: "upstream_status" };
-    const body = parseJson(response, "MOTOR validation response was invalid");
+    const body = parseJson(response, "Upstream validation response was invalid");
     if (!body.header || body.header.statusCode === undefined || body.body === undefined) return { valid: false, reason: "invalid_response" };
     return { valid: true };
   }

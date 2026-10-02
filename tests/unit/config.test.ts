@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { loadConfig } from "../../src/config.js";
 
 const validEnv = {
-  MOTOR_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
-  MOTOR_PROMPT_VALUE: "example-prompt",
+  UPSTREAM_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
+  UPSTREAM_PROMPT_VALUE: "example-prompt",
   SESSION_ENCRYPTION_KEY: "a".repeat(64),
 };
 
@@ -25,7 +25,7 @@ describe("loadConfig", () => {
   });
 
   it("rejects a non-HTTPS upstream origin", () => {
-    expect(() => loadConfig({ ...validEnv, MOTOR_API_ORIGIN: "http://evil.test" })).toThrow(/HTTPS/);
+    expect(() => loadConfig({ ...validEnv, UPSTREAM_API_ORIGIN: "http://evil.test" })).toThrow(/HTTPS/);
   });
 
   it("uses safe defaults for optional limits", () => {

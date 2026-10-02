@@ -3,8 +3,8 @@ import { loadConfig } from "../../src/config.js";
 import { createApp } from "../../src/server.js";
 
 const config = loadConfig({
-  MOTOR_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
-  MOTOR_PROMPT_VALUE: "synthetic-prompt",
+  UPSTREAM_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
+  UPSTREAM_PROMPT_VALUE: "synthetic-prompt",
   SESSION_ENCRYPTION_KEY: "a".repeat(64),
   PUBLIC_BASE_URL: "https://connector.test",
 });
@@ -69,7 +69,7 @@ describe("OpenAPI", () => {
       description: "No maintenance schedule is available for this vehicle",
     });
     expect(document.paths["/v1/api/asset/{handleId}"].get.responses["404"]).toEqual({
-      description: "The requested MOTOR asset is unavailable or invalid",
+      description: "The requested upstream asset is unavailable or invalid",
     });
     await app.close();
   });

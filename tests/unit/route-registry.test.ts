@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildMotorRequest, MOTOR_ROUTES } from "../../src/motor/route-registry.js";
+import { buildUpstreamRequest, UPSTREAM_ROUTES } from "../../src/upstream/route-registry.js";
 
-describe("MOTOR route registry", () => {
+describe("UPSTREAM route registry", () => {
   it("encodes the article id as one path segment and forwards only allowed queries", () => {
-    const request = buildMotorRequest("article", {
+    const request = buildUpstreamRequest("article", {
       contentSource: "GeneralMotors",
       vehicleId: "100342221",
       articleId: "4481222:17911387",
@@ -19,13 +19,13 @@ describe("MOTOR route registry", () => {
   });
 
   it("rejects a content source outside the configured allowlist", () => {
-    expect(() => buildMotorRequest("article", {
+    expect(() => buildUpstreamRequest("article", {
       contentSource: "UntrustedSource", vehicleId: "1", articleId: "2",
     }, "https://sites.motor.com", ["GeneralMotors"])).toThrow(/content source/i);
   });
 
   it("describes only read-only GET routes", () => {
-    const routes = Object.values(MOTOR_ROUTES);
+    const routes = Object.values(UPSTREAM_ROUTES);
     expect(routes.every((route) => route.method === "GET")).toBe(true);
     expect(routes.some((route) => route.id === "bookmark" || route.id === "feedback")).toBe(false);
   });

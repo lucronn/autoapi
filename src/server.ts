@@ -6,7 +6,7 @@ import { loadConfig, type Config } from "./config.js";
 import { EbscoHttpAuthAdapter } from "./auth/ebsco-http-auth-adapter.js";
 import { EncryptedSessionStore } from "./auth/session-store.js";
 import { SessionManager } from "./auth/session-manager.js";
-import { MotorApiClient } from "./motor/motor-client.js";
+import { UpstreamApiClient } from "./upstream/upstream-client.js";
 import { AssetProxy } from "./assets/asset-proxy.js";
 import { serializeError } from "./errors.js";
 import { registerApiRoutes } from "./routes/api-routes.js";
@@ -18,20 +18,20 @@ import { ResponseCache } from "./http/response-cache.js";
 
 export type ConnectorDependencies = {
   config: Config;
-  motorClient?: MotorApiClient;
+  upstreamClient?: UpstreamApiClient;
   sessionManager?: SessionManager;
   assetProxy?: AssetProxy;
 };
 
 export async function createApp(deps: ConnectorDependencies): Promise<FastifyInstance> {
   const app = Fastify({ logger: false, requestIdHeader: "x-request-id", routerOptions: { maxParamLength: 1024 } });
-  const motorClient = deps.motorClient ?? new MotorApiClient(deps.config);
+  const upstreamClient = deps.upstreamClient ?? new UpstreamApiClient(deps.config);
   const sessionManager = deps.sessionManager ?? new SessionManager(
     new EbscoHttpAuthAdapter(deps.config),
     new EncryptedSessionStore(deps.config.session.filePath, deps.config.session.encryptionKey),
     { refreshSkewSeconds: deps.config.session.refreshSkewSeconds },
   );
-  const assetProxy = deps.assetProxy ?? new AssetProxy(motorClient, deps.config);
+  const assetProxy = deps.assetProxy ?? new AssetProxy(upstreamClient, deps.config);
   const clientRateLimiter = new ClientRateLimiter({
     maxRequests: deps.config.limits.maxClientRequestsPerWindow,
     windowSeconds: deps.config.limits.clientRateWindowSeconds,
@@ -48,12 +48,12 @@ export async function createApp(deps: ConnectorDependencies): Promise<FastifyIns
   await app.register(swagger, {
       openapi: {
       openapi: "3.0.3",
-      info: { title: "MOTOR Read-only Connector API", version: "0.1.0" },
+      info: { title: "Autodbone Read-only Connector API", version: "0.1.0" },
     },
   });
   await app.register(swaggerUi, { routePrefix: "/docs" });
   app.get("/openapi.json", async () => app.swagger());
-  registerApiRoutes(app, { config: deps.config, motorClient, sessionManager, clientRateLimiter, responseCache });
+  registerApiRoutes(app, { config: deps.config, upstreamClient, sessionManager, clientRateLimiter, responseCache });
   registerAssetRoutes(app, { config: deps.config, assetProxy, sessionManager });
   registerHealthRoutes(app);
   await app.ready();

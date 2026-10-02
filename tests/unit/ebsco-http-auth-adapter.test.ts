@@ -6,10 +6,10 @@ import { EbscoHttpAuthAdapter } from "../../src/auth/ebsco-http-auth-adapter.js"
 import type { HttpResponse, HttpTransport } from "../../src/http/http-client.js";
 
 const config = loadConfig({
-  MOTOR_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
-  MOTOR_PROMPT_VALUE: "synthetic-prompt",
-  MOTOR_API_ORIGIN: "https://sites.motor.com",
-  MOTOR_LOGIN_ORIGIN: "https://login.ebsco.com",
+  UPSTREAM_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
+  UPSTREAM_PROMPT_VALUE: "synthetic-prompt",
+  UPSTREAM_API_ORIGIN: "https://sites.motor.com",
+  UPSTREAM_LOGIN_ORIGIN: "https://login.ebsco.com",
   SESSION_ENCRYPTION_KEY: "a".repeat(64),
 });
 
@@ -65,7 +65,7 @@ describe("EbscoHttpAuthAdapter", () => {
     expect(payload.context.original.authRequest).toBe("synthetic-auth-request");
   });
 
-  it("reports invalid when the read-only MOTOR probe returns 401", async () => {
+  it("reports invalid when the read-only upstream probe returns 401", async () => {
     const fake = sequenceTransport([response(401, "unauthorized")]);
     const adapter = new EbscoHttpAuthAdapter(config, fake.transport);
     const result = await adapter.validate({

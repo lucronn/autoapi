@@ -4,14 +4,14 @@ import { loadConfig } from "../../src/config.js";
 import { CookieJar } from "../../src/auth/cookie-jar.js";
 import type { AuthAdapter, AuthenticatedSession } from "../../src/auth/auth-adapter.js";
 import { SessionManager } from "../../src/auth/session-manager.js";
-import { MotorApiClient } from "../../src/motor/motor-client.js";
+import { UpstreamApiClient } from "../../src/upstream/upstream-client.js";
 import { createAssetReference } from "../../src/assets/asset-reference.js";
 import type { HttpTransport } from "../../src/http/http-client.js";
 import { createApp } from "../../src/server.js";
 
 const config = loadConfig({
-  MOTOR_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
-  MOTOR_PROMPT_VALUE: "synthetic-prompt",
+  UPSTREAM_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
+  UPSTREAM_PROMPT_VALUE: "synthetic-prompt",
   SESSION_ENCRYPTION_KEY: "a".repeat(64),
   PUBLIC_BASE_URL: "https://connector.test",
 });
@@ -31,9 +31,9 @@ async function fixture(name: string): Promise<string> {
 }
 
 async function appWithTransport(transport: HttpTransport, appConfig = config) {
-  const motorClient = new MotorApiClient(appConfig, transport);
+  const upstreamClient = new UpstreamApiClient(appConfig, transport);
   const sessionManager = new SessionManager(adapter, store, { refreshSkewSeconds: 300 });
-  return createApp({ config: appConfig, motorClient, sessionManager });
+  return createApp({ config: appConfig, upstreamClient, sessionManager });
 }
 
 describe("public API routes", () => {
@@ -62,8 +62,8 @@ describe("public API routes", () => {
 
   it("keeps generated asset URLs HTTPS behind a reverse proxy", async () => {
     const proxyConfig = loadConfig({
-      MOTOR_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
-      MOTOR_PROMPT_VALUE: "synthetic-prompt",
+      UPSTREAM_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
+      UPSTREAM_PROMPT_VALUE: "synthetic-prompt",
       SESSION_ENCRYPTION_KEY: "a".repeat(64),
     });
     const responseBody = await fixture("article-component-location.json");
@@ -75,7 +75,7 @@ describe("public API routes", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json().body.html).toMatch(/<img[^>]+src="https:\/\/connector\.test\/v1\/assets\/motor\//);
+    expect(response.json().body.html).toMatch(/<img[^>]+src="https:\/\/connector\.test\/v1\/assets\/reference\//);
     await app.close();
   });
 
@@ -91,7 +91,7 @@ describe("public API routes", () => {
       Math.floor(Date.now() / 1000),
     );
 
-    const response = await app.inject({ method: "GET", url: `/v1/assets/motor/${reference}` });
+    const response = await app.inject({ method: "GET", url: `/v1/assets/reference/${reference}` });
 
     expect(reference.length).toBeGreaterThan(100);
     expect(response.statusCode).toBe(200);
@@ -99,7 +99,7 @@ describe("public API routes", () => {
     await app.close();
   });
 
-  it("returns a distinct unavailable error when MOTOR has no parts list", async () => {
+  it("returns a distinct unavailable error when the upstream has no parts list", async () => {
     const app = await appWithTransport(async () => ({
       status: 500,
       headers: { "content-type": "application/json" },
@@ -145,7 +145,7 @@ describe("public API routes", () => {
       {
         url: "/v1/api/asset/example-asset-handle",
         code: "asset_unavailable",
-        message: "The requested MOTOR asset is unavailable or invalid.",
+        message: "The requested upstream asset is unavailable or invalid.",
         upstreamStatus: 400,
       },
     ];
@@ -192,7 +192,7 @@ describe("public API routes", () => {
     };
     const app = await createApp({
       config: limitedConfig,
-      motorClient: new MotorApiClient(limitedConfig, async () => {
+      upstreamClient: new UpstreamApiClient(limitedConfig, async () => {
         upstreamCalls += 1;
         return { status: 200, headers: { "content-type": "application/json" }, body: Buffer.from('{"header":{},"body":[]}') };
       }),

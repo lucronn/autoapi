@@ -2,7 +2,7 @@ import { Readable } from "node:stream";
 import type { Config } from "../config.js";
 import { ConnectorError } from "../errors.js";
 import type { AuthenticatedSession } from "../auth/auth-adapter.js";
-import type { MotorApiClient } from "../motor/motor-client.js";
+import type { UpstreamApiClient } from "../upstream/upstream-client.js";
 import { verifyAssetReference, type SignedAssetTarget } from "./asset-reference.js";
 
 export type StreamedAsset = {
@@ -14,7 +14,7 @@ export type StreamedAsset = {
 
 export class AssetProxy {
   constructor(
-    private readonly motorClient: MotorApiClient,
+    private readonly upstreamClient: UpstreamApiClient,
     private readonly config: Config,
     private readonly signingSecret: Buffer = config.session.encryptionKey,
   ) {}
@@ -22,7 +22,7 @@ export class AssetProxy {
   async stream(reference: string, session: AuthenticatedSession): Promise<StreamedAsset> {
     const target = verifyAssetReference(reference, this.signingSecret, Math.floor(Date.now() / 1000));
     this.assertAllowedTarget(target);
-    const response = await this.motorClient.executeResponse(
+    const response = await this.upstreamClient.executeResponse(
       target.kind === "asset" ? "asset" : target.kind === "graphic" || target.kind === "source" ? "graphic" : "asset",
       target.kind === "asset"
         ? { handleId: target.id }
@@ -31,7 +31,7 @@ export class AssetProxy {
       this.config.limits.maxAssetBytes,
     );
     if (response.status < 200 || response.status >= 300) {
-      throw new ConnectorError("upstream_error", "MOTOR asset request failed", 502, response.status);
+      throw new ConnectorError("upstream_error", "Upstream asset request failed", 502, response.status);
     }
     const contentType = this.header(response.headers, "content-type") ?? "application/octet-stream";
     const contentLengthValue = this.header(response.headers, "content-length");

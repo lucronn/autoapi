@@ -1,8 +1,8 @@
 import { ConnectorError } from "../errors.js";
 
-export type MotorRouteParams = Record<string, unknown>;
+export type UpstreamRouteParams = Record<string, unknown>;
 
-export type MotorRequest = {
+export type UpstreamRequest = {
   method: "GET";
   url: string;
   responseKind: "json" | "text";
@@ -12,11 +12,11 @@ type RouteDefinition = {
   id: string;
   method: "GET";
   responseKind: "json" | "text";
-  path: (params: MotorRouteParams) => string;
+  path: (params: UpstreamRouteParams) => string;
   query: readonly string[];
 };
 
-const segment = (params: MotorRouteParams, name: string): string => {
+const segment = (params: UpstreamRouteParams, name: string): string => {
   const value = params[name];
   if (value === undefined || value === null || String(value).length === 0) {
     throw new ConnectorError("invalid_request", `${name} is required`, 400);
@@ -26,7 +26,7 @@ const segment = (params: MotorRouteParams, name: string): string => {
 
 const path = (...parts: string[]): string => `/m1/api/${parts.join("/")}`;
 
-export const MOTOR_ROUTES = {
+export const UPSTREAM_ROUTES = {
   years: {
     id: "years",
     method: "GET",
@@ -62,8 +62,8 @@ export const MOTOR_ROUTES = {
     path: (params) => path("source", segment(params, "contentSource"), "vehicles"),
     query: ["vehicleIds"],
   },
-  motorVehicleDetails: {
-    id: "motorVehicleDetails",
+  vehicleDetails: {
+    id: "vehicleDetails",
     method: "GET",
     responseKind: "json",
     path: (params) => path("source", segment(params, "contentSource"), segment(params, "vehicleId"), "motorvehicles"),
@@ -162,7 +162,7 @@ export const MOTOR_ROUTES = {
   },
 } satisfies Record<string, RouteDefinition>;
 
-export type MotorRouteId = keyof typeof MOTOR_ROUTES;
+export type UpstreamRouteId = keyof typeof UPSTREAM_ROUTES;
 
 function queryValue(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
@@ -174,13 +174,13 @@ function encodeQuery(value: string): string {
   return encodeURIComponent(value).replace(/%20/g, "%20");
 }
 
-export function buildMotorRequest(
-  routeId: MotorRouteId,
-  params: MotorRouteParams,
+export function buildUpstreamRequest(
+  routeId: UpstreamRouteId,
+  params: UpstreamRouteParams,
   apiOrigin: string,
   allowedContentSources: readonly string[] = ["GeneralMotors", "Motor", "Toyota"],
-): MotorRequest {
-  const route = MOTOR_ROUTES[routeId];
+): UpstreamRequest {
+  const route = UPSTREAM_ROUTES[routeId];
   const contentSource = params.contentSource;
   if (contentSource !== undefined && !allowedContentSources.includes(String(contentSource))) {
     throw new ConnectorError("invalid_request", "content source is not allowed", 400);

@@ -2,7 +2,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadConfig } from "../src/config.js";
 import type { Config } from "../src/config.js";
 import { EbscoHttpAuthAdapter } from "../src/auth/ebsco-http-auth-adapter.js";
-import { MotorApiClient } from "../src/motor/motor-client.js";
+import { UpstreamApiClient } from "../src/upstream/upstream-client.js";
 import { normalizeHtml } from "../src/content/html-normalizer.js";
 import { ConnectorError } from "../src/errors.js";
 
@@ -67,7 +67,7 @@ async function main(): Promise<void> {
     const session = await adapter.authenticate();
     console.log(formatSmokeResult({ route: "authenticate", status: 200, durationMs: Date.now() - started, responseShape: "authorized", cookies: session.cookieJar.toHeader(Math.floor(Date.now() / 1000)) }));
 
-    const client = new MotorApiClient(config);
+    const client = new UpstreamApiClient(config);
     const articleParams = {
       contentSource: process.env.LIVE_SMOKE_ARTICLE_CONTENT_SOURCE ?? "GeneralMotors",
       vehicleId: process.env.LIVE_SMOKE_ARTICLE_VEHICLE_ID ?? "100342221",
@@ -93,7 +93,7 @@ async function main(): Promise<void> {
           contentSource: String(articleParams.contentSource),
           vehicleId: String(articleParams.vehicleId),
           upstreamOrigin: config.upstream.apiOrigin,
-          connectorAssetUrl: () => "http://127.0.0.1:3000/v1/assets/motor/[REDACTED]",
+          connectorAssetUrl: () => "http://127.0.0.1:3000/v1/assets/reference/[REDACTED]",
         });
         if (!normalized.html) throw new Error("normalized article HTML is empty");
       }

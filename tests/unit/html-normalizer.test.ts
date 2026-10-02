@@ -5,13 +5,13 @@ const context: HtmlNormalizationContext = {
   publicBaseUrl: "https://connector.test",
   contentSource: "GeneralMotors",
   vehicleId: "100342221",
-  connectorAssetUrl: ({ id, source }) => `https://connector.test/v1/assets/motor/source/${source}/${id}`,
+  connectorAssetUrl: ({ id, source }) => `https://connector.test/v1/assets/reference/source/${source}/${id}`,
 };
 
-describe("MOTOR HTML normalizer", () => {
-  it("converts MOTOR image tags to ordinary images", () => {
+describe("Upstream HTML normalizer", () => {
+  it("converts provider image tags to ordinary images", () => {
     const result = normalizeHtml("<div><mtr-image id='4481151' height='514' width='580' alt='Diagram'></mtr-image></div>", context);
-    expect(result.html).toContain('<img src="https://connector.test/v1/assets/motor/source/GeneralMotors/4481151"');
+    expect(result.html).toContain('<img src="https://connector.test/v1/assets/reference/source/GeneralMotors/4481151"');
     expect(result.html).toContain('alt="Diagram"');
     expect(result.html).toContain('height="514"');
   });

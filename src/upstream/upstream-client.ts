@@ -2,14 +2,14 @@ import type { Config } from "../config.js";
 import { ConnectorError } from "../errors.js";
 import { HttpClient, type HttpResponse, type HttpTransport } from "../http/http-client.js";
 import type { AuthenticatedSession } from "../auth/auth-adapter.js";
-import { buildMotorRequest, type MotorRequest, type MotorRouteId, type MotorRouteParams } from "./route-registry.js";
+import { buildUpstreamRequest, type UpstreamRequest, type UpstreamRouteId, type UpstreamRouteParams } from "./route-registry.js";
 
 export type UpstreamEnvelope<T> = {
   header: Record<string, unknown>;
   body: T;
 };
 
-export class MotorApiClient {
+export class UpstreamApiClient {
   private readonly http: HttpClient;
 
   constructor(private readonly config: Config, transport?: HttpTransport) {
@@ -20,8 +20,8 @@ export class MotorApiClient {
     });
   }
 
-  buildRequest(routeId: MotorRouteId, params: MotorRouteParams): MotorRequest {
-    return buildMotorRequest(
+  buildRequest(routeId: UpstreamRouteId, params: UpstreamRouteParams): UpstreamRequest {
+    return buildUpstreamRequest(
       routeId,
       params,
       this.config.upstream.apiOrigin,
@@ -29,7 +29,7 @@ export class MotorApiClient {
     );
   }
 
-  async executeResponse(routeId: MotorRouteId, params: MotorRouteParams, session: AuthenticatedSession, maxResponseBytes?: number): Promise<HttpResponse> {
+  async executeResponse(routeId: UpstreamRouteId, params: UpstreamRouteParams, session: AuthenticatedSession, maxResponseBytes?: number): Promise<HttpResponse> {
     const request = this.buildRequest(routeId, params);
     const response = await this.http.request({
       method: request.method,
@@ -44,10 +44,10 @@ export class MotorApiClient {
     return response;
   }
 
-  async execute<T = unknown>(routeId: MotorRouteId, params: MotorRouteParams, session: AuthenticatedSession): Promise<UpstreamEnvelope<T>> {
+  async execute<T = unknown>(routeId: UpstreamRouteId, params: UpstreamRouteParams, session: AuthenticatedSession): Promise<UpstreamEnvelope<T>> {
     const response = await this.executeResponse(routeId, params, session);
     if (response.status < 200 || response.status >= 300) {
-      throw new ConnectorError("upstream_error", "MOTOR request failed", 502, response.status);
+      throw new ConnectorError("upstream_error", "Upstream request failed", 502, response.status);
     }
     const request = this.buildRequest(routeId, params);
     if (request.responseKind === "text") {
@@ -58,10 +58,10 @@ export class MotorApiClient {
     try {
       parsed = JSON.parse(response.body.toString("utf8"));
     } catch (error) {
-      throw new ConnectorError("upstream_error", "MOTOR returned invalid JSON", 502, response.status, error);
+      throw new ConnectorError("upstream_error", "Upstream returned invalid JSON", 502, response.status, error);
     }
     if (!parsed || typeof parsed !== "object" || !("header" in parsed) || !("body" in parsed)) {
-      throw new ConnectorError("upstream_error", "MOTOR returned an invalid response envelope", 502, response.status);
+      throw new ConnectorError("upstream_error", "Upstream returned an invalid response envelope", 502, response.status);
     }
     return parsed as UpstreamEnvelope<T>;
   }

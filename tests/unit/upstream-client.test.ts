@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import { loadConfig } from "../../src/config.js";
 import { CookieJar } from "../../src/auth/cookie-jar.js";
 import type { AuthenticatedSession } from "../../src/auth/auth-adapter.js";
-import { MotorApiClient } from "../../src/motor/motor-client.js";
+import { UpstreamApiClient } from "../../src/upstream/upstream-client.js";
 import type { HttpResponse, HttpTransport } from "../../src/http/http-client.js";
 
 const config = loadConfig({
-  MOTOR_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
-  MOTOR_PROMPT_VALUE: "synthetic-prompt",
+  UPSTREAM_ENTRY_URL: "https://search.ebscohost.com/login.aspx?profile=example",
+  UPSTREAM_PROMPT_VALUE: "synthetic-prompt",
   SESSION_ENCRYPTION_KEY: "a".repeat(64),
 });
 
@@ -18,11 +18,11 @@ const session: AuthenticatedSession = {
   createdAt: 1_700_000_000,
 };
 
-describe("MotorApiClient", () => {
+describe("UpstreamApiClient", () => {
   it("preserves the upstream envelope and body array", async () => {
     const fixture = await readFile(new URL("../fixtures/makes-2024.json", import.meta.url), "utf8");
     const transport: HttpTransport = async () => ({ status: 200, headers: { "content-type": "application/json" }, body: Buffer.from(fixture) });
-    const client = new MotorApiClient(config, transport);
+    const client = new UpstreamApiClient(config, transport);
 
     const result = await client.execute("makes", { year: 2024 }, session);
 
@@ -36,7 +36,7 @@ describe("MotorApiClient", () => {
       seen = { url: request.url, cookie: request.headers?.cookie };
       return { status: 200, headers: { "content-type": "application/json" }, body: Buffer.from('{"header":{"statusCode":200},"body":{}}') };
     };
-    const client = new MotorApiClient(config, transport);
+    const client = new UpstreamApiClient(config, transport);
 
     await client.execute("article", {
       contentSource: "GeneralMotors", vehicleId: "100342221", articleId: "4481222:17911387",
@@ -54,7 +54,7 @@ describe("MotorApiClient", () => {
       headers: { "content-type": "application/json", "set-cookie": "SessionIdentifier=renewed; Path=/" },
       body: Buffer.from('{"header":{"statusCode":200},"body":[]}'),
     });
-    const client = new MotorApiClient(config, transport);
+    const client = new UpstreamApiClient(config, transport);
 
     await client.execute("years", {}, session);
 

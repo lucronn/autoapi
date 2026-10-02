@@ -6,15 +6,15 @@ import type { Config } from "../config.js";
 import { ConnectorError } from "../errors.js";
 import { normalizeHtml } from "../content/html-normalizer.js";
 import { createAssetReference } from "../assets/asset-reference.js";
-import type { MotorApiClient, UpstreamEnvelope } from "../motor/motor-client.js";
+import type { UpstreamApiClient, UpstreamEnvelope } from "../upstream/upstream-client.js";
 import type { HttpResponse } from "../http/http-client.js";
-import type { MotorRouteId } from "../motor/route-registry.js";
+import type { UpstreamRouteId } from "../upstream/route-registry.js";
 import { ClientRateLimiter } from "../http/client-rate-limiter.js";
 import { ResponseCache } from "../http/response-cache.js";
 
 export type ApiRouteDependencies = {
   config: Config;
-  motorClient: MotorApiClient;
+  upstreamClient: UpstreamApiClient;
   sessionManager: SessionManager;
   clientRateLimiter: ClientRateLimiter;
   responseCache: ResponseCache;
@@ -23,7 +23,7 @@ export type ApiRouteDependencies = {
 type PublicRoute = {
   method: "GET";
   url: string;
-  routeId: MotorRouteId;
+  routeId: UpstreamRouteId;
   query: readonly string[];
 };
 
@@ -33,7 +33,7 @@ export const PUBLIC_API_ROUTES: readonly PublicRoute[] = [
   { method: "GET", url: "/v1/api/year/:year/make/:make/models", routeId: "models", query: [] },
   { method: "GET", url: "/v1/api/vin/:vin/vehicle", routeId: "vinVehicle", query: [] },
   { method: "GET", url: "/v1/api/source/:contentSource/vehicles", routeId: "vehicles", query: ["vehicleIds"] },
-  { method: "GET", url: "/v1/api/source/:contentSource/:vehicleId/motorvehicles", routeId: "motorVehicleDetails", query: [] },
+  { method: "GET", url: "/v1/api/source/:contentSource/:vehicleId/motorvehicles", routeId: "vehicleDetails", query: [] },
   { method: "GET", url: "/v1/api/source/:contentSource/:vehicleId/name", routeId: "vehicleName", query: [] },
   { method: "GET", url: "/v1/api/source/:contentSource/vehicle/:vehicleId/articles/v2", routeId: "articles", query: ["bucketName", "articleSubtype", "searchTerm"] },
   { method: "GET", url: "/v1/api/source/:contentSource/vehicle/:vehicleId/article/:articleId", routeId: "article", query: ["bucketName", "articleSubtype", "searchTerm"] },
@@ -81,10 +81,10 @@ function parseEnvelope(response: HttpResponse): UpstreamEnvelope<unknown> {
   try {
     parsed = JSON.parse(response.body.toString("utf8"));
   } catch (error) {
-    throw new ConnectorError("upstream_error", "MOTOR returned invalid JSON", 502, response.status, error);
+    throw new ConnectorError("upstream_error", "Upstream returned invalid JSON", 502, response.status, error);
   }
   if (!parsed || typeof parsed !== "object" || !("header" in parsed) || !("body" in parsed)) {
-    throw new ConnectorError("upstream_error", "MOTOR returned an invalid response envelope", 502, response.status);
+    throw new ConnectorError("upstream_error", "Upstream returned an invalid response envelope", 502, response.status);
   }
   return parsed as UpstreamEnvelope<unknown>;
 }
@@ -109,7 +109,7 @@ function normalizeEnvelope(envelope: UpstreamEnvelope<unknown>, request: Fastify
     upstreamOrigin: config.upstream.apiOrigin,
     connectorAssetUrl: (target: { kind: "source" | "graphic" | "asset"; id: string; source?: string }) => {
       const reference = createAssetReference(target, config.session.encryptionKey, nowSeconds());
-      return `${publicBaseUrl(request, config)}/v1/assets/motor/${encodeURIComponent(reference)}`;
+      return `${publicBaseUrl(request, config)}/v1/assets/reference/${encodeURIComponent(reference)}`;
     },
   };
   const normalized = normalizeHtml(String(body.html), context);
@@ -129,8 +129,8 @@ async function handleRoute(request: FastifyRequest, reply: FastifyReply, deps: A
   }
   const override = overrideSession(request);
   const load = () => override
-    ? deps.motorClient.executeResponse(route.routeId, params, override)
-    : deps.sessionManager.withSession((session) => deps.motorClient.executeResponse(route.routeId, params, session));
+    ? deps.upstreamClient.executeResponse(route.routeId, params, override)
+    : deps.sessionManager.withSession((session) => deps.upstreamClient.executeResponse(route.routeId, params, session));
   const response = override
     ? await load()
     : await deps.responseCache.getOrSet(cacheKey(route.routeId, params), cacheTtlSeconds(route.routeId), load);
@@ -146,9 +146,9 @@ async function handleRoute(request: FastifyRequest, reply: FastifyReply, deps: A
       throw new ConnectorError("maintenance_schedule_unavailable", "No maintenance schedule is available for this vehicle.", 404, response.status);
     }
     if (route.routeId === "asset" && [400, 404].includes(response.status)) {
-      throw new ConnectorError("asset_unavailable", "The requested MOTOR asset is unavailable or invalid.", 404, response.status);
+      throw new ConnectorError("asset_unavailable", "The requested upstream asset is unavailable or invalid.", 404, response.status);
     }
-    throw new ConnectorError("upstream_error", "MOTOR request failed", 502, response.status);
+    throw new ConnectorError("upstream_error", "Upstream request failed", 502, response.status);
   }
 
   if (route.routeId === "graphic" || route.routeId === "asset" || route.routeId === "xml") {
@@ -162,11 +162,11 @@ async function handleRoute(request: FastifyRequest, reply: FastifyReply, deps: A
   await reply.send(query.raw === "true" || query.raw === true ? envelope : normalizeEnvelope(envelope, request, deps.config));
 }
 
-function cacheKey(routeId: MotorRouteId, params: Record<string, unknown>): string {
+function cacheKey(routeId: UpstreamRouteId, params: Record<string, unknown>): string {
   return `${routeId}:${JSON.stringify(Object.fromEntries(Object.entries(params).sort(([left], [right]) => left.localeCompare(right))))}`;
 }
 
-function cacheTtlSeconds(routeId: MotorRouteId): number {
+function cacheTtlSeconds(routeId: UpstreamRouteId): number {
   if (routeId === "article" || routeId === "articleTitle" || routeId === "labor") return 24 * 60 * 60;
   if (routeId === "graphic" || routeId === "asset" || routeId === "xml") return 60 * 60;
   return 15 * 60;

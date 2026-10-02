@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { OpenAPIV3 } from "openapi-types";
 import { PUBLIC_API_ROUTES } from "./routes/api-routes.js";
-import { MOTOR_ROUTES } from "./motor/route-registry.js";
+import { UPSTREAM_ROUTES } from "./upstream/route-registry.js";
 
 type ExampleValue = string | boolean;
 
@@ -15,15 +15,15 @@ const PARAMETER_EXAMPLES: Record<string, ParameterExample> = {
   year: { type: "string", example: "2024", description: "Model year." },
   make: { type: "string", example: "Toyota", description: "Vehicle make name." },
   vin: { type: "string", example: "1HGCM82633A004352", description: "Vehicle identification number." },
-  contentSource: { type: "string", example: "GeneralMotors", description: "MOTOR content source." },
-  vehicleId: { type: "string", example: "100342221", description: "MOTOR vehicle identifier." },
-  articleId: { type: "string", example: "4481222:17911387", description: "MOTOR article identifier." },
-  id: { type: "string", example: "4481151", description: "MOTOR graphic identifier." },
-  handleId: { type: "string", example: "example-asset-handle", description: "Valid MOTOR asset handle; the displayed placeholder is expected to return 404 until replaced." },
-  vehicleIds: { type: "string", example: "100342221", description: "Comma-separated MOTOR vehicle identifiers." },
-  bucketName: { type: "string", example: "Component Location Diagrams", description: "Optional MOTOR article bucket." },
-  articleSubtype: { type: "string", example: "", description: "Optional MOTOR article subtype." },
-  searchTerm: { type: "string", example: "", description: "Optional MOTOR article search term." },
+  contentSource: { type: "string", example: "GeneralMotors", description: "Provider content source." },
+  vehicleId: { type: "string", example: "100342221", description: "Provider vehicle identifier." },
+  articleId: { type: "string", example: "4481222:17911387", description: "Provider article identifier." },
+  id: { type: "string", example: "4481151", description: "Provider graphic identifier." },
+  handleId: { type: "string", example: "example-asset-handle", description: "Valid provider asset handle; the displayed placeholder is expected to return 404 until replaced." },
+  vehicleIds: { type: "string", example: "100342221", description: "Comma-separated provider vehicle identifiers." },
+  bucketName: { type: "string", example: "Component Location Diagrams", description: "Optional provider article bucket." },
+  articleSubtype: { type: "string", example: "", description: "Optional provider article subtype." },
+  searchTerm: { type: "string", example: "", description: "Optional provider article search term." },
   raw: { type: "boolean", example: false, description: "Return the upstream envelope without HTML normalization." },
 };
 
@@ -32,7 +32,7 @@ function routeParameterNames(routeUrl: string): string[] {
 }
 
 function openApiParameter(name: string, location: "path" | "query", required: boolean): OpenAPIV3.ParameterObject {
-  const definition = PARAMETER_EXAMPLES[name] ?? { type: "string", example: "", description: `MOTOR ${name} value.` };
+  const definition = PARAMETER_EXAMPLES[name] ?? { type: "string", example: "", description: `Provider ${name} value.` };
   return {
     name,
     in: location,
@@ -53,25 +53,25 @@ export async function registerOpenApi(app: FastifyInstance): Promise<void> {
   openapi.paths ??= {};
   for (const route of PUBLIC_API_ROUTES) {
     const path = route.url.replace(/:([A-Za-z0-9_]+)/g, "{$1}");
-    const motorRoute = MOTOR_ROUTES[route.routeId];
+    const upstreamRoute = UPSTREAM_ROUTES[route.routeId];
     const parameters = [
       ...routeParameterNames(route.url).map((name) => openApiParameter(name, "path", true)),
       ...route.query.map((name) => openApiParameter(name, "query", false)),
-      ...(motorRoute.responseKind === "json" ? [openApiParameter("raw", "query", false)] : []),
+      ...(upstreamRoute.responseKind === "json" ? [openApiParameter("raw", "query", false)] : []),
     ];
     openapi.paths[path] ??= {};
     openapi.paths[path].get = {
       operationId: route.routeId,
-      summary: `Read MOTOR ${route.routeId}`,
+      summary: `Read upstream ${route.routeId}`,
       parameters,
       responses: {
-        "200": { description: "Upstream MOTOR response envelope" },
+        "200": { description: "Upstream response envelope" },
         ...(route.routeId === "parts" ? { "404": { description: "No parts list is available for this vehicle" } } : {}),
         ...(route.routeId === "labor" ? { "404": { description: "No labor data is available for this vehicle or article" } } : {}),
         ...(["maintenanceFrequency", "maintenanceIntervals", "maintenanceIndicators"].includes(route.routeId)
           ? { "404": { description: "No maintenance schedule is available for this vehicle" } }
           : {}),
-        ...(route.routeId === "asset" ? { "404": { description: "The requested MOTOR asset is unavailable or invalid" } } : {}),
+        ...(route.routeId === "asset" ? { "404": { description: "The requested upstream asset is unavailable or invalid" } } : {}),
         "502": { description: "Upstream failure" },
       },
     };
